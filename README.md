@@ -30,7 +30,8 @@ engine modules only, no other package or project code.
    **Environment**.
 
 `Samples/Scenes/ClothSimulation.unity` hangs the five sample fabrics side by side under one wind, with a box
-and sphere colliders to drape over.
+and sphere colliders to drape over. `Samples/Scenes/Betta.unity` builds a betta fish out of seven sheets (see
+*Betta* below).
 
 ## Components
 
@@ -156,6 +157,7 @@ friction at once:
 | `ClothFabric_Denim` | 0.45 | Heavier, fewer and broader folds, resists twisting |
 | `ClothFabric_Canvas` | 0.60 | Sailcloth: holds its shape, swings slowly, barely ripples |
 | `ClothFabric_Leather` | 1.00 | Nearly rigid, deep sculpted creases, almost inert under wind |
+| `ClothFabric_FinMembrane` | 0.30 | The Betta fins: stiff in bending so a fan holds its shape, heavily damped, self-colliding |
 
 `ClothQuality_Test_Substeps2` / `_Substeps32` are a calibration pair, not fabrics.
 
@@ -176,6 +178,29 @@ buffers; the materials in `Samples/Materials/` expose every dial.
 | `VelaClothArt_WeatheredPrint` | strain, world normal, curvature | A printed motif that cracks where stretched, dust on upward-facing cloth, grime in the folds |
 | `VelaClothArt_StainedGlass` | facing, velocity | Lead-came panes coloured from a palette, backlit from the far side, each pane's hue shifted by its own speed |
 | `VelaClothArt_Heraldic` | displacement, strain, facing | A different print on each face, flaking away where the sheet has moved furthest from rest or is stretched |
+| `VelaClothArt_BettaFin` | curvature, facing | Clips the sheet to a frayed fan and shades radiating rays with pleat lighting, a backlit membrane and dark tips |
+
+### Betta
+
+`Samples/Scenes/Betta.unity` recreates a betta fish: a capsule body with a `VelaClothCollider`, and seven
+`TopEdge`-pinned sheets on `VelaClothArt_BettaFin` (caudal, dorsal, anal, two pelvic, two pectoral), each
+rotated so its pinned edge lies along the body and the sheet points in the fin's direction. The fan silhouette
+is the shader's `clip`, so the physics still runs on the full rectangle. What keeps the fans open, since a plain
+sheet has no rays:
+
+- **No gravity, and each fin's wind blows outward along its own direction.** A steady flow along the sheet pushes
+  every ripple to the tip and keeps it extended, the way a flag streams; a shared current instead folds the
+  fins that point across it, and any gravity hangs them down their pinned edge.
+- **`Slot.Back` / `Slot.Front`** are two thin box colliders 7 cm either side of the median plane. A sheet pinned
+  along one row is a hinge with no restoring force, and turbulence alone walks it edge-on within a minute; the
+  slot bounds that swing while leaving room to ripple. The pelvic and pectoral pins sit outside the slot.
+- **Pins sit just outside the body collider** (`thickness` 0.01). A pinned row inside a collider makes its
+  neighbours fight the projection every substep, which reads as crumpling at the fin base.
+- **`preRollSteps` is 0.** In Play mode the pre-roll runs from `OnEnable`, before the colliders have registered,
+  so a settled pre-roll would already have passed through the slot walls; with nothing to settle it is not needed.
+
+`_BaseWidth`, `_FanCurve` and `_EdgeFray` shape the fan; `_RayCount`, `_RaySplit` and `_PleatDepth` the rays;
+`_Diffuse` + `_Backlight` should stay near 1 in total or the pale tips clip and the gradient disappears.
 
 To use one on your own cloth, assign the material and add **Vela → Samples → Cloth Art Binder** next to the
 Cloth Simulation. The binder hands the position and velocity buffers and the grid constants to the material
