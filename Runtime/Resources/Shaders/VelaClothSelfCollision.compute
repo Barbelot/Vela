@@ -1,0 +1,273 @@
+#pragma kernel KHashClear
+#pragma kernel KHashCount
+#pragma kernel KScanLocal
+#pragma kernel KScanBlocks
+#pragma kernel KScanApply
+#pragma kernel KHashScatter
+#pragma kernel KHashSort
+#pragma kernel KSelfCollideAccum
+#pragma kernel KSelfCollideApply
+
+#include "VelaClothCommon.hlsl"
+
+#define THREADS_SCAN 512
+
+// Members past this in one cell are ignored, which bounds both KHashSort's insertion sort and the walk in
+// KSelfCollideAccum when a crumpled sheet piles a whole region into a single cell.
+#define CELL_MEMBER_LIMIT 64
+
+RWStructuredBuffer<uint>   _CellCount;   // counts, then the scatter cursor counting back down to 0
+RWStructuredBuffer<uint>   _CellStart;   // exclusive prefix sum, _NumCells + 1 entries
+RWStructuredBuffer<uint>   _SortedIds;
+RWStructuredBuffer<uint>   _ScanBlocks;
+RWStructuredBuffer<float4> _DeltaPos;    // xyz correction, w = contact count
+
+float _CellSize;
+uint  _NumCells;
+uint  _ScanBlockCount;
+float _SelfRadius;
+uint  _MaxContacts;
+float _SelfRelax;
+float _SelfFriction;
+
+int3 ClothCellCoord(float3 p)
+{
+    return (int3)floor(p / _CellSize);
+}
+
+uint ClothCellHash(int3 c)
+{
+    uint h = asuint(c.x * 92837111) ^ asuint(c.y * 689287499) ^ asuint(c.z * 283923481);
+    return h & (_NumCells - 1);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KHashClear(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x < _NumCells)
+        _CellCount[tid.x] = 0;
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KHashCount(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x >= _VertexCount)
+        return;
+
+    uint ignored;
+    InterlockedAdd(_CellCount[ClothCellHash(ClothCellCoord(_Pos[tid.x].xyz))], 1, ignored);
+}
+
+groupshared uint gsScan[THREADS_SCAN];
+
+[numthreads(THREADS_SCAN, 1, 1)]
+void KScanLocal(uint3 tid : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint gi : SV_GroupIndex)
+{
+    uint value = tid.x < _NumCells ? _CellCount[tid.x] : 0;
+    gsScan[gi] = value;
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint offset = 1; offset < THREADS_SCAN; offset <<= 1)
+    {
+        uint carried = gi >= offset ? gsScan[gi - offset] : 0;
+        GroupMemoryBarrierWithGroupSync();
+        gsScan[gi] += carried;
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (tid.x < _NumCells)
+        _CellStart[tid.x] = gsScan[gi] - value;
+
+    if (gi == THREADS_SCAN - 1)
+        _ScanBlocks[gid.x] = gsScan[gi];
+}
+
+groupshared uint gsCarry;
+
+// One group walking the block totals in chunks, so a million vertices' 4096 blocks need no second level.
+[numthreads(THREADS_SCAN, 1, 1)]
+void KScanBlocks(uint gi : SV_GroupIndex)
+{
+    if (gi == 0)
+        gsCarry = 0;
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint base = 0; base < _ScanBlockCount; base += THREADS_SCAN)
+    {
+        uint index = base + gi;
+        uint value = index < _ScanBlockCount ? _ScanBlocks[index] : 0;
+        gsScan[gi] = value;
+        GroupMemoryBarrierWithGroupSync();
+
+        for (uint offset = 1; offset < THREADS_SCAN; offset <<= 1)
+        {
+            uint carried = gi >= offset ? gsScan[gi - offset] : 0;
+            GroupMemoryBarrierWithGroupSync();
+            gsScan[gi] += carried;
+            GroupMemoryBarrierWithGroupSync();
+        }
+
+        uint exclusive = gsScan[gi] - value + gsCarry;
+        uint chunkTotal = gsScan[THREADS_SCAN - 1];
+        GroupMemoryBarrierWithGroupSync();
+
+        if (index < _ScanBlockCount)
+            _ScanBlocks[index] = exclusive;
+
+        if (gi == 0)
+            gsCarry += chunkTotal;
+        GroupMemoryBarrierWithGroupSync();
+    }
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KScanApply(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x == 0)
+        _CellStart[_NumCells] = _VertexCount;
+
+    if (tid.x < _NumCells)
+        _CellStart[tid.x] += _ScanBlocks[tid.x / THREADS_SCAN];
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KHashScatter(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x >= _VertexCount)
+        return;
+
+    uint cell = ClothCellHash(ClothCellCoord(_Pos[tid.x].xyz));
+
+    // Counting the cursor back down reuses _CellCount instead of allocating a second buffer, and leaves it
+    // at zero for the next step.
+    uint remaining;
+    InterlockedAdd(_CellCount[cell], 0xFFFFFFFFu, remaining);
+    _SortedIds[_CellStart[cell] + remaining - 1] = tid.x;
+}
+
+// The scatter's cursor is an atomic, so a cell's members land in a race-dependent order; sorting them by id
+// is what keeps a bake bit-identical to the live run that produced it.
+[numthreads(THREADS_1D, 1, 1)]
+void KHashSort(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x >= _NumCells)
+        return;
+
+    uint first = _CellStart[tid.x];
+    uint last = min(_CellStart[tid.x + 1], first + CELL_MEMBER_LIMIT);
+
+    for (uint i = first + 1; i < last; i++)
+    {
+        uint value = _SortedIds[i];
+        uint j = i;
+
+        while (j > first && _SortedIds[j - 1] > value)
+        {
+            _SortedIds[j] = _SortedIds[j - 1];
+            j--;
+        }
+
+        _SortedIds[j] = value;
+    }
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KSelfCollideAccum(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    _DeltaPos[id] = float4(0, 0, 0, 0);
+
+    float4 self = _Pos[id];
+    if (self.w <= 0.0)
+        return;
+
+    float contactDistance = 2.0 * _SelfRadius;
+    int3 home = ClothCellCoord(self.xyz);
+    int selfX = (int)(id % _W);
+    int selfY = (int)(id / _W);
+
+    float3 delta = 0.0;
+    uint contacts = 0;
+
+    for (uint o = 0; o < 27; o++)
+    {
+        // Started at the home cell (offset 13), because _MaxContacts truncates the walk and a contact is at
+        // most one cell away: spending the budget in scan order would resolve only the low-corner
+        // neighbours, which is a net push along +xyz on every dense region rather than merely a lost contact.
+        uint step = (o + 13) % 27;
+        uint cell = ClothCellHash(home + int3((int)(step % 3), (int)((step / 3) % 3), (int)(step / 9)) - 1);
+        uint first = _CellStart[cell];
+        uint last = min(_CellStart[cell + 1], first + CELL_MEMBER_LIMIT);
+
+        for (uint k = first; k < last; k++)
+        {
+            uint other = _SortedIds[k];
+            if (other == id)
+                continue;
+
+            // The whole 3x3 grid neighbourhood is held near rest spacing by the structural and shear
+            // constraints, so a contact there is the flat sheet fighting itself. Skipping it is also what
+            // lets the radius run up to a full rest spacing: the closest pair left is the 2-ring.
+            if (abs((int)(other % _W) - selfX) <= 1 && abs((int)(other / _W) - selfY) <= 1)
+                continue;
+
+            float4 neighbour = _Pos[other];
+            float3 diff = self.xyz - neighbour.xyz;
+            float separation = length(diff);
+            if (separation >= contactDistance)
+                continue;
+
+            float3 n = separation > 1e-6 ? diff / separation : float3(0, 0, 1);
+            float weights = self.w + neighbour.w;
+            float share = weights > 0.0 ? self.w / weights : 0.0;
+
+            delta += n * ((contactDistance - separation) * share);
+            contacts++;
+
+            if (contacts >= _MaxContacts)
+                break;
+        }
+
+        if (contacts >= _MaxContacts)
+            break;
+    }
+
+    _DeltaPos[id] = float4(delta, contacts);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KSelfCollideApply(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 p = _Pos[id];
+    if (p.w <= 0.0)
+        return;
+
+    float4 accumulated = _DeltaPos[id];
+    uint contacts = (uint)accumulated.w;
+    if (contacts == 0)
+        return;
+
+    float3 correction = accumulated.xyz * (_SelfRelax / contacts);
+    float3 x = p.xyz + correction;
+
+    float depth = length(correction);
+    if (_SelfFriction > 0.0 && depth > 1e-9)
+    {
+        float3 n = correction / depth;
+        float3 relative = x - _PosPrev[id].xyz;
+        float3 tangent = relative - dot(relative, n) * n;
+        float tangentLength = length(tangent);
+
+        if (tangentLength > 1e-9)
+            x -= tangent * min(1.0, _SelfFriction * depth / tangentLength);
+    }
+
+    WRITE_POS(id, x, p.w);
+}

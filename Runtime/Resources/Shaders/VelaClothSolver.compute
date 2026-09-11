@@ -1,0 +1,221 @@
+#pragma kernel KPredict
+#pragma kernel KDistanceH
+#pragma kernel KDistanceV
+#pragma kernel KShearA
+#pragma kernel KShearB
+#pragma kernel KBendH
+#pragma kernel KBendV
+#pragma kernel KBendDiagA
+#pragma kernel KBendDiagB
+#pragma kernel KLra
+#pragma kernel KCollideAnalytic
+#pragma kernel KUpdateVelocity
+#pragma kernel KReset
+
+#pragma multi_compile _ CLOTH_AERODYNAMICS
+
+#include "VelaClothConstraints.hlsl"
+#include "VelaClothCollision.hlsl"
+#include "VelaClothWind.hlsl"
+
+[numthreads(THREADS_1D, 1, 1)]
+void KPredict(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 p = _Pos[id];
+    float w = p.w;
+
+    _PosPrev[id] = float4(p.xyz, w);
+
+    if (w <= 0.0)
+    {
+        _Vel[id] = float4(0, 0, 0, 0);
+        return;
+    }
+
+    float3 v = _Vel[id].xyz + _Gravity * _SubstepDt;
+
+    float speed = length(v);
+    if (speed > _MaxVelocity)
+        v *= _MaxVelocity / speed;
+
+    _Vel[id] = float4(v, 0);
+    WRITE_POS(id, p.xyz + v * _SubstepDt, w);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KDistanceH(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 2 * tid.x + _Parity;
+    uint y = tid.y;
+    if (x + 1 >= _W || y >= _H)
+        return;
+
+    SolveDistance(ClothId(x, y), ClothId(x + 1, y), _RestDx, _AlphaStructuralH);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KDistanceV(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = tid.x;
+    uint y = 2 * tid.y + _Parity;
+    if (x >= _W || y + 1 >= _H)
+        return;
+
+    SolveDistance(ClothId(x, y), ClothId(x, y + 1), _RestDy, _AlphaStructuralV);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KShearA(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 2 * tid.x + _Parity;
+    uint y = tid.y;
+    if (x + 1 >= _W || y + 1 >= _H)
+        return;
+
+    SolveDistance(ClothId(x, y), ClothId(x + 1, y + 1), _RestDiag, _AlphaShear);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KShearB(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 2 * tid.x + _Parity;
+    uint y = tid.y;
+    if (x + 1 >= _W || y + 1 >= _H)
+        return;
+
+    SolveDistance(ClothId(x + 1, y), ClothId(x, y + 1), _RestDiag, _AlphaShear);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KBendH(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 3 * tid.x + _Phase + 1;
+    uint y = tid.y;
+    if (x + 1 >= _W || y >= _H)
+        return;
+
+    SolveBending(ClothId(x - 1, y), ClothId(x, y), ClothId(x + 1, y), _RestDx, _AlphaBend);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KBendV(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = tid.x;
+    uint y = 3 * tid.y + _Phase + 1;
+    if (x >= _W || y + 1 >= _H)
+        return;
+
+    SolveBending(ClothId(x, y - 1), ClothId(x, y), ClothId(x, y + 1), _RestDy, _AlphaBend);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KBendDiagA(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 3 * tid.x + _Phase + 1;
+    uint y = tid.y + 1;
+    if (x + 1 >= _W || y + 1 >= _H)
+        return;
+
+    SolveBending(ClothId(x - 1, y - 1), ClothId(x, y), ClothId(x + 1, y + 1), _RestDiag, _AlphaBend);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KBendDiagB(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = 3 * tid.x + _Phase + 1;
+    uint y = tid.y + 1;
+    if (x + 1 >= _W || y + 1 >= _H)
+        return;
+
+    SolveBending(ClothId(x - 1, y + 1), ClothId(x, y), ClothId(x + 1, y - 1), _RestDiag, _AlphaBend);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KLra(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 p = _Pos[id];
+    if (p.w <= 0.0)
+        return;
+
+    WRITE_POS(id, SolveLongRange(id, p.xyz), p.w);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KCollideAnalytic(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 p = _Pos[id];
+    if (p.w <= 0.0)
+        return;
+
+    WRITE_POS(id, ClothCollideAll(p.xyz, _PosPrev[id].xyz), p.w);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KUpdateVelocity(uint3 tid : SV_DispatchThreadID)
+{
+    uint x = tid.x;
+    uint y = tid.y;
+    if (x >= _W || y >= _H)
+        return;
+
+    uint id = ClothId(x, y);
+    float4 p = _Pos[id];
+    if (p.w <= 0.0)
+        return;
+
+    float3 v = (p.xyz - _PosPrev[id].xyz) * _InvSubstepDt;
+
+    // Laplacian velocity smoothing: pull each vertex towards its neighbours' mean, which removes the
+    // relative motion that reads as ripple and spring-back. A sheet moving uniformly has no relative
+    // motion to remove, so its swing survives untouched — that is the difference from _VelocityDamp.
+    if (_VelocitySmooth > 0.0)
+    {
+        float3 sum = 0.0;
+        float count = 0.0;
+
+        if (x > 0)      { sum += ClothSubstepVelocity(id - 1);  count += 1.0; }
+        if (x + 1 < _W) { sum += ClothSubstepVelocity(id + 1);  count += 1.0; }
+        if (y > 0)      { sum += ClothSubstepVelocity(id - _W); count += 1.0; }
+        if (y + 1 < _H) { sum += ClothSubstepVelocity(id + _W); count += 1.0; }
+
+        if (count > 0.0)
+            v = lerp(v, sum / count, _VelocitySmooth);
+    }
+
+    v *= _VelocityDamp;
+
+#ifdef CLOTH_AERODYNAMICS
+    // Wind lands here rather than in KPredict, whose gather over neighbours would race that kernel's own
+    // position write and cost the solver its bit-reproducibility; this pass only reads _Pos and _PosPrev.
+    // Wind is sampled once per vertex and shared by its six incident triangles — three curl-noise
+    // evaluations per triangle would be the heaviest ALU in the solver for a difference below a rest spacing.
+    v += ClothAeroForce(x, y, ClothWindAt(p.xyz)) * (p.w * _SubstepDt);
+#endif
+
+    _Vel[id] = float4(v, 0);
+}
+
+[numthreads(THREADS_1D, 1, 1)]
+void KReset(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 rest = _PosRest[id];
+    _Pos[id] = rest;
+    _PosPrev[id] = rest;
+    _Vel[id] = float4(0, 0, 0, 0);
+}

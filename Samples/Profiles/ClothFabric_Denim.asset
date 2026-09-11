@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b0c9a41d7e24f6c8a55e1b207d4f930, type: 3}
+  m_Name: ClothFabric_Denim
+  m_EditorClassIdentifier:
+  areaDensity: 0.45
+  substeps: 8
+  maxVelocity: 8
+  structuralStiffness: 1
+  useShear: 1
+  shearStiffness: 0.6
+  bendingStiffness: 0.62
+  bendingMode: 0
+  bendingDirections: 2
+  globalDamping: 1.5
+  localDamping: 100
+  useLongRangeAttachment: 1
+  lraAnchorCount: 1
+  lraStretchAllowance: 0.02
+  useSelfCollision: 1
+  selfCollisionThicknessMode: 0
+  selfCollisionRadiusScale: 0.8
+  selfCollisionThickness: 0.015
+  selfCollisionStride: 2
+  maxContactsPerVertex: 16
+  selfCollisionFriction: 0.45
+  useAerodynamics: 1
+  dragCoefficient: 1.1
+  liftCoefficient: 0.12

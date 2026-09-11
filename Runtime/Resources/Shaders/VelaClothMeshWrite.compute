@@ -1,0 +1,154 @@
+#pragma kernel KWriteVertexBuffer
+#pragma kernel KResetPrevFrame
+#pragma kernel KBoundsClear
+#pragma kernel KBoundsReduce
+#pragma multi_compile _ WRITE_MOTION_VECTORS
+
+#include "VelaClothCommon.hlsl"
+
+RWByteAddressBuffer _VertexBuffer;
+RWStructuredBuffer<float4> _PosPrevFrame;
+RWStructuredBuffer<uint> _BoundsAtomic;
+
+uint _VertexStride;
+
+// Winding matches ClothGrid.FillIndices, so the cross points along -Z on the rest sheet; its length is twice
+// the triangle area, which makes the sum over incident faces an area-weighted average for free.
+float3 ClothFaceNormal(uint i0, uint i1, uint i2)
+{
+    float3 p0 = _Pos[i0].xyz;
+    return cross(_Pos[i1].xyz - p0, _Pos[i2].xyz - p0);
+}
+
+// Gathered per face rather than from a central difference: across a fold crease p[x+1] and p[x-1] nearly
+// coincide, so the difference collapses to noise and the shading streaks along every crease.
+float3 ClothVertexNormal(uint x, uint y)
+{
+    bool left = x > 0;
+    bool below = y > 0;
+    bool right = x + 1 < _W;
+    bool above = y + 1 < _H;
+
+    float3 n = 0.0;
+
+    if (right && above)
+    {
+        uint a = ClothId(x, y), b = ClothId(x + 1, y), c = ClothId(x, y + 1), d = ClothId(x + 1, y + 1);
+        n += ClothFaceNormal(a, c, d);
+        n += ClothFaceNormal(a, d, b);
+    }
+
+    if (left && above)
+        n += ClothFaceNormal(ClothId(x - 1, y), ClothId(x, y + 1), ClothId(x, y));
+
+    if (right && below)
+        n += ClothFaceNormal(ClothId(x, y - 1), ClothId(x, y), ClothId(x + 1, y));
+
+    if (left && below)
+    {
+        uint a = ClothId(x - 1, y - 1), b = ClothId(x, y - 1), c = ClothId(x - 1, y), d = ClothId(x, y);
+        n += ClothFaceNormal(a, c, d);
+        n += ClothFaceNormal(a, d, b);
+    }
+
+    return n;
+}
+
+#define OFFSET_POSITION 0
+#define OFFSET_NORMAL   12
+#define OFFSET_TANGENT  24
+#define OFFSET_VELOCITY 48
+
+[numthreads(THREADS_1D, 1, 1)]
+void KWriteVertexBuffer(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    uint x = id % _W;
+    uint y = id / _W;
+
+    uint xm = x > 0 ? x - 1 : x;
+    uint xp = min(x + 1, _W - 1);
+
+    float3 p = _Pos[id].xyz;
+    float3 dx = _Pos[ClothId(xp, y)].xyz - _Pos[ClothId(xm, y)].xyz;
+
+    float3 n = ClothVertexNormal(x, y);
+    float nLen = length(n);
+    n = nLen > 1e-12 ? n / nLen : float3(0, 0, -1);
+
+    // Gram-Schmidt against n, since dx degenerates on the same creases the face-gathered normal survives.
+    float3 t = dx - n * dot(n, dx);
+    float tLen = length(t);
+    t = tLen > 1e-12 ? t / tLen : normalize(cross(n, abs(n.z) < 0.9 ? float3(0, 0, 1) : float3(1, 0, 0)));
+
+    uint base = id * _VertexStride;
+    _VertexBuffer.Store3(base + OFFSET_POSITION, asuint(p));
+    _VertexBuffer.Store3(base + OFFSET_NORMAL, asuint(n));
+    _VertexBuffer.Store4(base + OFFSET_TANGENT, asuint(float4(t, -1.0)));
+
+#ifdef WRITE_MOTION_VECTORS
+    // HDRP reconstructs previousPositionOS = positionOS - TEXCOORD4, so the channel is current minus previous.
+    float3 prev = _PosPrevFrame[id].xyz;
+    _VertexBuffer.Store3(base + OFFSET_VELOCITY, asuint(p - prev));
+    _PosPrevFrame[id] = float4(p, 0);
+#endif
+}
+
+// Seeds the motion-vector history so the frame after a reset, seek or loop-wrap emits zero displacement.
+[numthreads(THREADS_1D, 1, 1)]
+void KResetPrevFrame(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    _PosPrevFrame[id] = float4(_Pos[id].xyz, 0);
+}
+
+[numthreads(8, 1, 1)]
+void KBoundsClear(uint3 tid : SV_DispatchThreadID)
+{
+    if (tid.x < 3)
+        _BoundsAtomic[tid.x] = 0xFFFFFFFFu;
+    else if (tid.x < 6)
+        _BoundsAtomic[tid.x] = 0u;
+}
+
+groupshared uint gsMin[3];
+groupshared uint gsMax[3];
+
+[numthreads(THREADS_1D, 1, 1)]
+void KBoundsReduce(uint3 tid : SV_DispatchThreadID, uint gi : SV_GroupIndex)
+{
+    if (gi < 3)
+    {
+        gsMin[gi] = 0xFFFFFFFFu;
+        gsMax[gi] = 0u;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    if (tid.x < _VertexCount)
+    {
+        float3 p = _Pos[tid.x].xyz;
+        uint ignored;
+
+        [unroll]
+        for (uint a = 0; a < 3; a++)
+        {
+            uint o = FloatToOrderedUint(p[a]);
+            InterlockedMin(gsMin[a], o, ignored);
+            InterlockedMax(gsMax[a], o, ignored);
+        }
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    if (gi < 3)
+    {
+        uint ignored;
+        InterlockedMin(_BoundsAtomic[gi], gsMin[gi], ignored);
+        InterlockedMax(_BoundsAtomic[3 + gi], gsMax[gi], ignored);
+    }
+}

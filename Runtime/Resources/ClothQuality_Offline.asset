@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b0c9a41d7e24f6c8a55e1b207d4f930, type: 3}
+  m_Name: ClothQuality_Offline
+  m_EditorClassIdentifier:
+  areaDensity: 0.2
+  substeps: 20
+  maxVelocity: 20
+  structuralStiffness: 1
+  useShear: 1
+  shearStiffness: 0.9
+  bendingStiffness: 0.45
+  bendingMode: 0
+  bendingDirections: 4
+  globalDamping: 1
+  localDamping: 60
+  useLongRangeAttachment: 1
+  lraAnchorCount: 2
+  lraStretchAllowance: 0.02
+  useSelfCollision: 1
+  selfCollisionThicknessMode: 0
+  selfCollisionRadiusScale: 0.8
+  selfCollisionThickness: 0.015
+  selfCollisionStride: 1
+  maxContactsPerVertex: 16
+  selfCollisionFriction: 0.3
+  useAerodynamics: 1
+  dragCoefficient: 1
+  liftCoefficient: 0.2
