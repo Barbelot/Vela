@@ -8,15 +8,16 @@ engine modules only, no other package or project code.
 ## Requirements
 
 - Unity 6 (6000.6) and a GPU with compute shader support.
-- HDRP for the shipped lit material, `Rendering/HDRP/VelaClothLit_HDRP.mat`. The simulation itself is
-  pipeline-agnostic and `Runtime/Materials/VelaClothDebug.mat` renders on any pipeline.
+- HDRP for the shipped lit material, `Rendering/HDRP/VelaClothLit_HDRP.mat`, and for the sample art
+  shaders. The simulation itself is pipeline-agnostic and `Runtime/Materials/VelaClothDebug.mat` renders on
+  any pipeline.
 
 ## Installation
 
-1. Copy `Assets/Plugins/Vela/` into your project.
+1. Copy `Assets/Plugins/Vela/` into your project. `Samples/` can be deleted; nothing else depends on it.
 2. Using it from a scene needs nothing more. To reference the `Vela` namespace from your own scripts, add
    `Vela` to your assembly definition's references — the plugin's asmdef is not
-   auto-referenced.
+   auto-referenced. `Samples/Vela.Samples.asmdef` is.
 
 ## Getting started
 
@@ -57,10 +58,11 @@ The one component a drape needs. Its inspector is grouped into foldouts; every f
 
 **Environment**
 - `forces.gravity` — world-space acceleration in m/s².
-- `wind` — the air around this drape, in world space: `direction`, `speed` (m/s; a flag lifts around 3 and
-  snaps taut past 12), `gustAmplitude` and `gustFrequency` (gusts travel downwind across the sheet),
-  `turbulence`, `turbulenceScale` (eddies per metre: 0.2 is sheet-sized rolls, 3 is ripples),
-  `turbulenceSpeed`, and `airDensity` (1.225 is sea-level air; raising it makes the whole wind bite harder).
+- `wind` — the air around this drape, in world space: `intensity` (scales `speed` and `turbulence` together;
+  0 is still air, 1 leaves them as authored), `direction`, `speed` (m/s; a flag lifts around 3 and snaps taut
+  past 12), `gustAmplitude` and `gustFrequency` (gusts travel downwind across the sheet), `turbulence`,
+  `turbulenceScale` (eddies per metre: 0.2 is sheet-sized rolls, 3 is ripples), `turbulenceSpeed`, and
+  `airDensity` (1.225 is sea-level air; raising it makes the whole wind bite harder).
 
 **Rendering**
 - `material` — assigned to the `MeshRenderer`.
@@ -156,6 +158,33 @@ friction at once:
 | `ClothFabric_Leather` | 1.00 | Nearly rigid, deep sculpted creases, almost inert under wind |
 
 `ClothQuality_Test_Substeps2` / `_Substeps32` are a calibration pair, not fabrics.
+
+### Sample shaders
+
+`Samples/Scenes/ClothShaders.unity` hangs eight sheets side by side, each on a hand-written HDRP shader from
+`Samples/Shaders/` that shades from the solver's own state rather than from textures alone. Strain, shear,
+curvature, velocity, pinning and displacement from rest are derived per vertex from the position and velocity
+buffers; the materials in `Samples/Materials/` expose every dial.
+
+| Material | Driven by | Reads as |
+|---|---|---|
+| `VelaClothArt_DataDebug` | any one quantity | Diverging or heat ramp over strain, shear, curvature, velocity, speed, pins, displacement, rest position or facing — the reference for writing a new shader |
+| `VelaClothArt_Woven` | strain | Procedural warp/weft weave with an anisotropic sheen; threads part and show the backing where stretched, darken where compressed |
+| `VelaClothArt_Iridescent` | curvature, velocity | Thin-film colour from the view angle, hue shifted in folds, shimmer that moves with speed |
+| `VelaClothArt_SumiE` | curvature, velocity, facing | Paper grain with three-tone hatching; ink pools in creases and smears with motion; lining colour on the back |
+| `VelaClothArt_Hologram` | velocity, pins, strain | Emissive speed ramp under a UV grid and scanlines; pinned vertices glow, over-stretched areas show warning bands |
+| `VelaClothArt_WeatheredPrint` | strain, world normal, curvature | A printed motif that cracks where stretched, dust on upward-facing cloth, grime in the folds |
+| `VelaClothArt_StainedGlass` | facing, velocity | Lead-came panes coloured from a palette, backlit from the far side, each pane's hue shifted by its own speed |
+| `VelaClothArt_Heraldic` | displacement, strain, facing | A different print on each face, flaking away where the sheet has moved furthest from rest or is stretched |
+
+To use one on your own cloth, assign the material and add **Vela → Samples → Cloth Art Binder** next to the
+Cloth Simulation. The binder hands the position and velocity buffers and the grid constants to the material
+every frame and pushes the scene's directional light as the shading light (`sun` picks one explicitly);
+without it the sheet does not draw at all, since the shaders read a buffer that is otherwise unbound.
+
+These are stylized forward passes, not HDRP Lit: they cast shadows but receive none, take no GI, and stay
+out of the depth prepass, so SSAO, SSR, decals and per-object motion vectors do not apply to them. Colour is
+authored in 0–1 and ignores exposure.
 
 ## Tuning
 

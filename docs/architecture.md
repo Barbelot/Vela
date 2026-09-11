@@ -8,7 +8,9 @@ Design constraints and conventions that the code cannot state for itself. For th
 
 Unity 6000.6, HDRP 17.6, .NET Standard 2.1, Mono desktop/Windows. `allowUnsafeCode` is off project-wide; the
 runtime asmdef opts in on its own rather than changing the project setting, for `AsyncReadManager`
-(`void*` buffers) once a cache reader needs it. Both asmdefs are `autoReferenced: false`.
+(`void*` buffers) once a cache reader needs it. The `Vela` and `Vela.Editor` asmdefs are `autoReferenced: false`;
+`Samples/Vela.Samples.asmdef` references `Vela` and is auto-referenced, and being outside `Runtime/` it may
+depend on HDRP (its shadow pass does, its script does not).
 
 ## Hard constraints
 

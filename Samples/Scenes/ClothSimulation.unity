@@ -266,6 +266,7 @@ MonoBehaviour:
   preRollSteps: 60
   pinMode: 1
   wind:
+    intensity: 1
     direction: {x: 1, y: 0, z: 0}
     speed: 4
     gustAmplitude: 0.35
@@ -484,6 +485,7 @@ MonoBehaviour:
   preRollSteps: 60
   pinMode: 1
   wind:
+    intensity: 1
     direction: {x: 1, y: 0, z: 0}
     speed: 4
     gustAmplitude: 0.35
@@ -632,6 +634,7 @@ MonoBehaviour:
   preRollSteps: 60
   pinMode: 1
   wind:
+    intensity: 1
     direction: {x: 1, y: 0, z: 0}
     speed: 4
     gustAmplitude: 0.35
@@ -790,6 +793,7 @@ MonoBehaviour:
   preRollSteps: 60
   pinMode: 1
   wind:
+    intensity: 1
     direction: {x: 1, y: 0, z: 0}
     speed: 4
     gustAmplitude: 0.35
@@ -1079,6 +1083,7 @@ MonoBehaviour:
   preRollSteps: 60
   pinMode: 1
   wind:
+    intensity: 1
     direction: {x: 1, y: 0, z: 0}
     speed: 4
     gustAmplitude: 0.35

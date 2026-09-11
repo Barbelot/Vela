@@ -7,6 +7,9 @@ namespace Vela
     [Serializable]
     public struct VelaClothWindSettings
     {
+        [Tooltip("Scales speed and turbulence together, so the whole wind can be faded from a single slider. 0 is still air, 1 leaves the values below as authored.")]
+        [Min(0f)] public float intensity;
+
         [Tooltip("World-space direction the wind blows towards. Normalized before it reaches the solver.")]
         public Vector3 direction;
 
@@ -33,6 +36,7 @@ namespace Vela
 
         public static VelaClothWindSettings Default => new VelaClothWindSettings
         {
+            intensity = 1f,
             direction = new Vector3(0f, 0f, 1f),
             speed = 4f,
             gustAmplitude = 0.35f,
@@ -44,7 +48,11 @@ namespace Vela
         };
 
         /// <summary>False when the air itself is still. Whether the cloth responds to it is the profile's business.</summary>
-        public bool HasEffect => (speed > 0f || turbulence > 0f) && airDensity > 0f;
+        public bool HasEffect => intensity > 0f && (speed > 0f || turbulence > 0f) && airDensity > 0f;
+
+        public float EffectiveSpeed => speed * intensity;
+
+        public float EffectiveTurbulence => turbulence * intensity;
 
         public Vector3 NormalizedDirection =>
             direction.sqrMagnitude > 1e-8f ? direction.normalized : Vector3.forward;

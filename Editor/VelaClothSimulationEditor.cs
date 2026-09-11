@@ -141,13 +141,15 @@ namespace Vela.Editor
                 return "wind        fabric has no drag and no lift, so the field cannot reach it\n";
 
             if (!wind.HasEffect)
-                return "wind        still air (no speed, no turbulence, or no air density)\n";
+                return "wind        still air (no intensity, no speed, no turbulence, or no air density)\n";
 
-            float peak = wind.speed * (1f + wind.gustAmplitude) + wind.turbulence;
+            float speed = wind.EffectiveSpeed;
+            float turbulence = wind.EffectiveTurbulence;
+            float peak = speed * (1f + wind.gustAmplitude) + turbulence;
             float pressure = 0.5f * wind.airDensity * peak * peak;
 
-            return $"wind        {wind.speed:0.#} m/s +{wind.gustAmplitude * 100f:0}% gust " +
-                   $"+{wind.turbulence:0.#} swirl, peak {pressure:0.#} Pa\n";
+            return $"wind        {speed:0.#} m/s +{wind.gustAmplitude * 100f:0}% gust " +
+                   $"+{turbulence:0.#} swirl, peak {pressure:0.#} Pa\n";
         }
 
         static string LongRange(VelaClothProfile profile, bool active, int anchors)

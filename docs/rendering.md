@@ -78,10 +78,36 @@ tag is the same string, but the includes, varyings, output encoding and render-g
 completely, and reproducing what HDRP's Shader Graph generates is fragile across HDRP versions — the same
 objection that rules out `RenderPrimitives`.
 
-`VelaClothSimulation` exposes `PositionBuffer` and `VelocityBuffer` so a VFX Graph can read the simulation without
-a second copy. `Runtime/Materials/VelaClothDebug.shader` is unlit and pipeline-agnostic, with `Normal`, `UV` and
-`Velocity` modes for inspecting the written channels and a `Facing` mode (green front, red back) showing which
-side of the sheet each pixel rasterizes as.
+`VelaClothSimulation` exposes `PositionBuffer` and `VelocityBuffer` so a VFX Graph or a material can read the
+simulation without a second copy. `Runtime/Materials/VelaClothDebug.shader` is unlit and pipeline-agnostic, with
+`Normal`, `UV` and `Velocity` modes for inspecting the written channels and a `Facing` mode (green front, red
+back) showing which side of the sheet each pixel rasterizes as.
+
+## Reading solver buffers from a material
+
+The sample shaders in `Samples/Shaders/` read the solver directly instead of the vertex stream alone, and the
+pattern generalises to any custom material:
+
+- The index buffer references vertices directly with no base vertex, so `SV_VertexID` is the grid id
+  `y · W + x`, and a vertex shader can address its neighbours in `PositionBuffer` (`float4`: object-space
+  position, `w` = inverse mass, `0` for a pinned vertex) and `VelocityBuffer` (`float4`: object-space m/s).
+- `VelaClothArtCommon.hlsl` derives, per vertex: strain along u and v (central-difference edge length over
+  rest spacing, one-sided at the border), shear (cosine between the two edges), curvature (Laplacian dotted with
+  the normal over rest area, in 1/m) and displacement from the rest position rebuilt from uv, sheet size and
+  pivot. The Laplacian uses the vertices two steps away: the adjacent-vertex stencil alternates row by row
+  with the solver's residual, and a one-sided stencil would read the border as a permanent crease, so each
+  axis is masked out there instead.
+- `VelaClothArtBinder` binds the buffers and grid constants through a `MaterialPropertyBlock` in `OnEnable`
+  and every `LateUpdate`, because `Rebuild()` recreates the buffers and same-object `Update` order is not
+  guaranteed. A draw whose `StructuredBuffer` is unbound is dropped with a D3D12 warning, so the first binder
+  alive also sets a one-element global fallback for both buffers: draws without a block (the material
+  preview in the Inspector) read zeros and collapse silently instead of warning.
+- Each shader is a `ForwardOnly` pass (the slot HDRP rasterizes for any SRP-agnostic shader) plus a
+  `ShadowCaster` pass. The shadow pass uses HDRP's own includes rather than `UnityCG`: HDRP pushes the shadow
+  view-projection into its `_ViewProjMatrix` global and `_ZClip` as a global float, so `TransformWorldToHClip`
+  and `ZClip [_ZClip]` follow it while the legacy matrices would not. The forward pass keeps `UnityCG` because
+  HDRP calls `SetupCameraProperties` for the camera. There is no `DepthForwardOnly` or `MotionVectors` pass, so
+  the sheet is absent from the depth prepass and from per-object motion vectors.
 
 ## Self-shadowing across a fold
 

@@ -206,6 +206,8 @@ w = direction · speed · (1 + gustAmplitude · sin(2π · gustFrequency · (t �
   + turbulence · curlNoise((p − direction · turbulenceSpeed · t) · turbulenceScale)
 ```
 
+- `speed` and `turbulence` reach the shader already multiplied by `intensity` (`EffectiveSpeed`,
+  `EffectiveTurbulence`), so one slider fades the whole field and 0 counts as still air for `HasEffect`.
 - The gust is phased along the wind direction and travels downwind at the wind's own speed. A global sinusoid
   pulses the whole sheet in unison, which reads as a tremble; a travelling gust reads as weather with no extra
   parameter.

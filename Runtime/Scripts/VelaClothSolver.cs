@@ -415,10 +415,10 @@ namespace Vela
             VelaClothWindSettings wind = Wind;
 
             _solverCs.SetVector(ShaderIds.WindDir, wind.NormalizedDirection);
-            _solverCs.SetFloat(ShaderIds.WindSpeed, wind.speed);
+            _solverCs.SetFloat(ShaderIds.WindSpeed, wind.EffectiveSpeed);
             _solverCs.SetFloat(ShaderIds.GustAmplitude, wind.gustAmplitude);
             _solverCs.SetFloat(ShaderIds.GustFrequency, wind.gustFrequency);
-            _solverCs.SetFloat(ShaderIds.Turbulence, wind.turbulence);
+            _solverCs.SetFloat(ShaderIds.Turbulence, wind.EffectiveTurbulence);
             _solverCs.SetFloat(ShaderIds.TurbulenceScale, wind.turbulenceScale);
             _solverCs.SetFloat(ShaderIds.TurbulenceSpeed, wind.turbulenceSpeed);
             // The dynamic-pressure half and the air density fold into the coefficients here rather than
