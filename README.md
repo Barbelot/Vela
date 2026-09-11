@@ -22,7 +22,7 @@ engine modules only, no other package or project code.
 
 1. Create an empty GameObject and add **Vela → Cloth Simulation**. It adds and drives its own `MeshFilter`
    and `MeshRenderer`.
-2. Assign a material: `Rendering/HDRP/VelaClothLit_HDRP.mat`, or `VelaClothDebug.mat` to see normals, UVs or velocity.
+2. Assign a material: `Rendering/HDRP/VelaClothLit_HDRP.mat`, or `VelaClothDebug.mat` to see normals, UVs, velocity or front/back facing.
 3. Assign a **Cloth Profile** — one of `Runtime/Resources/ClothQuality_{Realtime,Balanced,Offline}` or a
    fabric from `Samples/Profiles/`. With none assigned the component runs on built-in defaults.
 4. Leave `pinMode` on `TopEdge` and press Play: the sheet hangs, settles and answers the wind field under
@@ -175,6 +175,10 @@ friction at once:
 - **Wind**: `liftCoefficient` makes it billow, `dragCoefficient` makes it stream; `areaDensity` is the dial
   when the wind looks right but the cloth is too eager; `airDensity` is the blunt one.
 - Read the **Diagnostics** foldout while dragging any slider.
+- **Bright bands along fold creases are shadow leaks**: the two layers of a fold sit `2 × half-thickness`
+  apart (~6 cm at 128 vertices over 5 m), so a directional shadow map whose texel plus bias exceeds that lights
+  the lower layer through the upper one. Raise the light's shadow resolution (the sample uses 4096) or lower
+  its normal bias until a texel is well under the layer gap; the material's double-sided mode is not the cause.
 
 The reasoning behind every dial is in [docs/solver.md](docs/solver.md).
 
@@ -195,7 +199,6 @@ project uses none of those, turn `writeMotionVectors` off and save 12 B/vertex.
   64 vertices share a hash cell.
 - Results are bit-reproducible on the same GPU and driver, not across vendors.
 - Ray-traced effects lag the geometry by a frame.
-- Known issue: a moving drape can show bright bands along its fold creases.
 
 ## Further reading
 

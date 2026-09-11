@@ -80,4 +80,14 @@ objection that rules out `RenderPrimitives`.
 
 `VelaClothSimulation` exposes `PositionBuffer` and `VelocityBuffer` so a VFX Graph can read the simulation without
 a second copy. `Runtime/Materials/VelaClothDebug.shader` is unlit and pipeline-agnostic, with `Normal`, `UV` and
-`Velocity` modes for inspecting the written channels.
+`Velocity` modes for inspecting the written channels and a `Facing` mode (green front, red back) showing which
+side of the sheet each pixel rasterizes as.
+
+## Self-shadowing across a fold
+
+A fold is two layers `2 × half-thickness` apart, nothing thicker. Directional shadows resolve that gap only when
+a shadow texel plus normal bias is well under it; otherwise the lower layer is lit through the upper one and
+the leak shows as a bright band hugging the crease. The double-sided normal mode only changes which way the
+normal bias pushes the sample — `Flip`/`Mirror` toward the light on back-face pixels, `None` away from it — so it
+hides or reveals the leak without being its cause. The sample scene's light uses a 4096 shadow map for that
+reason.

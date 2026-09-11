@@ -2,7 +2,7 @@ Shader "Vela/ClothDebug"
 {
     Properties
     {
-        [KeywordEnum(Normal, UV, Velocity)] _Mode ("Debug Mode", Float) = 0
+        [KeywordEnum(Normal, UV, Velocity, Facing)] _Mode ("Debug Mode", Float) = 0
         _VelocityScale ("Velocity Scale", Float) = 20
     }
 
@@ -20,7 +20,7 @@ Shader "Vela/ClothDebug"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile _MODE_NORMAL _MODE_UV _MODE_VELOCITY
+            #pragma multi_compile _MODE_NORMAL _MODE_UV _MODE_VELOCITY _MODE_FACING
             #pragma target 4.5
 
             #include "UnityCG.cginc"
@@ -53,12 +53,14 @@ Shader "Vela/ClothDebug"
                 return o;
             }
 
-            float4 frag(Varyings input) : SV_Target
+            float4 frag(Varyings input, bool isFrontFace : SV_IsFrontFace) : SV_Target
             {
                 #if defined(_MODE_UV)
                     return float4(input.uv, 0, 1);
                 #elif defined(_MODE_VELOCITY)
                     return float4(abs(input.velocityOS) * _VelocityScale, 1);
+                #elif defined(_MODE_FACING)
+                    return isFrontFace ? float4(0, 1, 0, 1) : float4(1, 0, 0, 1);
                 #else
                     return float4(normalize(input.normalWS) * 0.5 + 0.5, 1);
                 #endif
