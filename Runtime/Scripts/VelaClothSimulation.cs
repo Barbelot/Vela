@@ -42,6 +42,9 @@ namespace Vela
         [Tooltip("Forces acting on the drape from outside it, in world space.")]
         [SerializeField] VelaClothForceSettings forces = VelaClothForceSettings.Default;
 
+        [Tooltip("How much the free vertices resist the transform's own motion. 1 leaves them where they were in the world and lets the pins drag the sheet along; 0 carries the whole sheet rigidly.")]
+        [SerializeField, Range(0f, 1f)] float transformInertia = 1f;
+
         [Tooltip("Assigned to the MeshRenderer. HDRP needs \"Add Precomputed Velocity\" on for correct motion vectors.")]
         [SerializeField] Material material;
 
@@ -59,6 +62,8 @@ namespace Vela
         int _builtAnchorCount;
         float _builtAreaDensity;
         bool _dirty;
+        Vector3 _prevPosition;
+        Quaternion _prevRotation;
 
         public VelaClothGrid Grid => _binding?.Grid ?? ResolveGrid();
         public Mesh Mesh => _binding?.Mesh;
@@ -125,6 +130,7 @@ namespace Vela
             else if (Profile.lraAnchorCount != _builtAnchorCount)
                 BuildPinState(_binding.Grid, false);
 
+            ApplyTransformMotion();
             PushSettings();
             _driver.Tick(Application.isPlaying ? Time.deltaTime : Mathf.Min(Time.deltaTime, 1f / 30f));
             _solver.WriteToMesh(_binding.VertexBuffer, _binding.Stride);
@@ -159,6 +165,27 @@ namespace Vela
 
             _driver.PreRoll(preRollSteps);
             _solver.WriteToMesh(_binding.VertexBuffer, _binding.Stride);
+
+            _prevPosition = transform.position;
+            _prevRotation = transform.rotation;
+        }
+
+        // Once per frame, before the colliders pack against the new pose; a frame that runs no step must still
+        // hold the sheet still in the world. Scale is taken from the current frame on both sides so a scale
+        // edit stays rigid, and a large jump leaves the sheet behind — Rebuild is the teleport.
+        void ApplyTransformMotion()
+        {
+            Vector3 position = transform.position;
+            Quaternion rotation = transform.rotation;
+
+            if (position == _prevPosition && rotation == _prevRotation)
+                return;
+
+            Matrix4x4 previousLocalToWorld = Matrix4x4.TRS(_prevPosition, _prevRotation, transform.lossyScale);
+            _solver.ApplyTransformDelta(transform.worldToLocalMatrix * previousLocalToWorld, transformInertia);
+
+            _prevPosition = position;
+            _prevRotation = rotation;
         }
 
         /// <summary>Fills rest positions and invMass, then rebuilds the geodesic tables from them. <paramref name="uploadRest"/> is false when only the tables went stale, since uploading rest state resets the drape.</summary>

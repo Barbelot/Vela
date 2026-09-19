@@ -38,6 +38,9 @@ compute-capable device.
   then holds out like a diving board while Silk falls to vertical. At 128 rows and 8 substeps constraint
   information travels ~8 rows per frame and everything reads mushy regardless of profile. A collider draped
   over is the other way to force curvature, and needs no rotation.
+- **Transform motion** — in Play mode drag a top-pinned sheet with the move gizmo: at `transformInertia = 1`
+  the free part lags and swings back with no jitter under the pin row, at 0 it moves as one piece. Rotate it about Y: the drape keeps hanging
+  straight down in the world and swings. Move it over a collider: it drapes without popping.
 - **Fabrics** — the sample scene's `FabricRow` hangs the five `ClothFabric_*` profiles side by side under one
   wind; an artist should be able to name each from its motion alone.
 - **Determinism** — step the solver twice from identical state, read back, compare bitwise. This also guards

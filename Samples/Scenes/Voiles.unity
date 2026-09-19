@@ -342,6 +342,7 @@ MonoBehaviour:
     airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  transformInertia: 1
   material: {fileID: 2100000, guid: 5c9d13a7e28b4f34a0761bd2c4e98f06, type: 2}
   castShadows: 0
   writeMotionVectors: 0
@@ -482,6 +483,7 @@ MonoBehaviour:
     airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  transformInertia: 1
   material: {fileID: 2100000, guid: 7e41b8c05d3a49f4ab2c6e07d951f38a, type: 2}
   castShadows: 0
   writeMotionVectors: 0
@@ -622,6 +624,7 @@ MonoBehaviour:
     airDensity: 1.225
   forces:
     gravity: {x: 0, y: -0.5, z: 0}
+  transformInertia: 1
   material: {fileID: 2100000, guid: 7e41b8c05d3a49f4ab2c6e07d951f38a, type: 2}
   castShadows: 0
   writeMotionVectors: 0
@@ -762,6 +765,7 @@ MonoBehaviour:
     airDensity: 1.225
   forces:
     gravity: {x: 0, y: -0.5, z: 0}
+  transformInertia: 1
   material: {fileID: 2100000, guid: 5c9d13a7e28b4f34a0761bd2c4e98f06, type: 2}
   castShadows: 0
   writeMotionVectors: 0
@@ -1413,13 +1417,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1186556037}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.5, y: 0.94, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0.0453618, w: 0.9989706}
+  m_LocalPosition: {x: -1.28, y: -0.24, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1300001}
-  m_LocalEulerAnglesHint: {x: 5, y: 35, z: 12}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -5.2}
 --- !u!114 &1186556039
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1451,7 +1455,7 @@ MonoBehaviour:
   qualityProfile: {fileID: 11400000, guid: 2d68f4a1c5b74e83b91ad70e6c25f3b9, type: 2}
   simulationRate: 60
   maxStepsPerFrame: 3
-  preRollSteps: 900
+  preRollSteps: 60
   pinMode: 1
   wind:
     intensity: 1
@@ -1465,6 +1469,7 @@ MonoBehaviour:
     airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  transformInertia: 1
   material: {fileID: 2100000, guid: 93825ac2c292bba48a471854e120803f, type: 2}
   castShadows: 1
   writeMotionVectors: 0

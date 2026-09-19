@@ -132,6 +132,37 @@ threads write the same element.
   `KPredict` rewrites `_PosPrev` at the top of the next substep. Uploading new tables re-arms it.
 - Over-locking: too tight an allowance on a wide drape stiffens its lower region into a cone.
 
+## Transform motion
+
+The solver runs in cloth object space, so a moving transform would carry every vertex rigidly. Instead of
+moving the state into world space, `KApplyTransform` maps every vertex's position, previous position and
+velocity from the previous cloth frame into the current one (`worldToLocal_now · localToWorld_prev`),
+blended by `transformInertia`. The whole sheet keeps its world placement, pins included; each substep's
+`KPredict` then lerps the pins back towards their local rest by `_PinSweep = 1 / (substeps remaining)`, a
+linear sweep over the step, and the constraints do the dragging.
+
+- **The pins are swept, not snapped.** Moving only the free vertices leaves the pin row a whole frame's
+  displacement from its neighbours; the distance constraints close that in substep 1 and `v = (x − xⁿ)/h`
+  reports `substeps ×` the transform's real speed — the same impulse the collider lerp exists to avoid — which
+  reads as jitter under the pins whenever the sheet is dragged. The sweep sets the pins' `_PosPrev` before the
+  move, so wind and self-collision see their true velocity.
+
+- **Not a world-space solver, because that costs more.** World-space state has to re-transform the pins
+  every step and convert the mesh back to object space every frame; the counter-transform is one dispatch,
+  only on frames the transform moved, and every other subsystem stays untouched: colliders already pack
+  against the current cloth matrix with a previous-pose history, bounds stay local, rest state stays local.
+- **Once per frame, before `Step`, not per step.** The colliders pack against the new pose at the top of the
+  step, so the vertices must already be in it; and a frame that runs no step (accumulator short) must still
+  hold the sheet still in the world. A frame that runs several steps spends the pin sweep in the first one.
+- **`_PosPrevFrame` is not transformed.** The object-space displacement this pass produces, plus the
+  renderer's own object motion, is exactly the world motion the temporal passes should see.
+- **Scale is excluded from the delta.** Both matrices use the current `lossyScale`, so a scale edit stays
+  rigid; only position and rotation carry inertia.
+- **No teleport detection.** A jump of several metres leaves the sheet that far behind, and long-range
+  attachment then hauls it back at `maxVelocity`. `Rebuild` is the teleport.
+- Wind is sampled at object-space positions, so a cloth carried through turbulence does not see the field
+  move past it; gusts and eddies travel with the sheet.
+
 ## Colliders
 
 - The solver runs in cloth object space, so `GpuCollider` (304 B) carries cloth→collider and collider→cloth
@@ -203,8 +234,14 @@ Per vertex, once per substep:
 
 ```
 w = direction · speed · (1 + gustAmplitude · sin(2π · gustFrequency · (t − dot(p, direction) / speed)))
-  + turbulence · curlNoise((p − direction · turbulenceSpeed · t) · turbulenceScale)
+  + turbulence · curlNoise((p − advection) · turbulenceScale)
 ```
+
+- **`advection` is integrated per step (`+= direction · turbulenceSpeed · dt`), never computed as
+  `direction · turbulenceSpeed · t`.** `direction` is re-rotated into object space every frame, and after a
+  minute of play `turbulenceSpeed · t` is a lever arm of 100 m: a tenth of a degree of roll or pitch would then
+  re-sample the whole field tens of centimetres away and the sheet trembles whenever it turns about any axis
+  but the wind's. The gust phase keeps its `dot(p, direction)` because `p` is only metres long.
 
 - `speed` and `turbulence` reach the shader already multiplied by `intensity` (`EffectiveSpeed`,
   `EffectiveTurbulence`), so one slider fades the whole field and 0 counts as still air for `HasEffect`.

@@ -31,7 +31,7 @@ namespace Vela
         readonly int _kPredict, _kDistanceH, _kDistanceV, _kUpdateVelocity, _kReset;
         readonly int _kShearA, _kShearB, _kBendH, _kBendV, _kBendDiagA, _kBendDiagB;
         readonly int _kWriteVertexBuffer, _kResetPrevFrame;
-        readonly int _kCollideAnalytic, _kLra;
+        readonly int _kCollideAnalytic, _kLra, _kApplyTransform;
 
         GraphicsBuffer _pos, _posPrev, _posRest, _vel, _posPrevFrame;
         GraphicsBuffer _lraAnchor, _lraDist;
@@ -55,6 +55,10 @@ namespace Vela
 
         /// <summary>Accumulated from the <c>dt</c> passed to <see cref="Step"/>, never from a clock — that is what makes a bake and a live run see the same gust.</summary>
         public float SimulationTime { get; set; }
+
+        // Integrated per step rather than derived as direction × time: the direction is re-rotated into
+        // object space every frame, and a lever arm that long would re-sample the whole field on any turn.
+        Vector3 _windAdvection;
 
         public GraphicsBuffer PositionBuffer => _pos;
         public GraphicsBuffer VelocityBuffer => _vel;
@@ -92,6 +96,7 @@ namespace Vela
             _kCollideAnalytic = _solverCs.FindKernel("KCollideAnalytic");
             _kUpdateVelocity = _solverCs.FindKernel("KUpdateVelocity");
             _kReset = _solverCs.FindKernel("KReset");
+            _kApplyTransform = _solverCs.FindKernel("KApplyTransform");
             _kWriteVertexBuffer = _meshWriteCs.FindKernel("KWriteVertexBuffer");
             _kResetPrevFrame = _meshWriteCs.FindKernel("KResetPrevFrame");
 
@@ -129,7 +134,7 @@ namespace Vela
                      {
                          _kPredict, _kDistanceH, _kDistanceV, _kShearA, _kShearB,
                          _kBendH, _kBendV, _kBendDiagA, _kBendDiagB,
-                         _kLra, _kCollideAnalytic, _kUpdateVelocity, _kReset
+                         _kLra, _kCollideAnalytic, _kUpdateVelocity, _kReset, _kApplyTransform
                      })
             {
                 _solverCs.SetBuffer(k, ShaderIds.Pos, _pos);
@@ -210,6 +215,7 @@ namespace Vela
         public void Reset()
         {
             SimulationTime = 0f;
+            _windAdvection = Vector3.zero;
             BindSolverBuffers();
             _solverCs.Dispatch(_kReset, Groups(Grid.VertexCount), 1, 1);
             _colliders?.ClearHistory();
@@ -224,6 +230,18 @@ namespace Vela
 
             BindMeshWriteBuffers(_kResetPrevFrame);
             _meshWriteCs.Dispatch(_kResetPrevFrame, Groups(Grid.VertexCount), 1, 1);
+        }
+
+        /// <summary>Maps every vertex from the cloth's previous frame into its current one, so the sheet keeps its world placement; the next <see cref="Step"/> sweeps the pins back to rest across its substeps. Call once per frame the transform moved, before <see cref="Step"/>.</summary>
+        public void ApplyTransformDelta(Matrix4x4 previousToCurrentLocal, float inertia)
+        {
+            if (inertia <= 0f)
+                return;
+
+            BindSolverBuffers();
+            _solverCs.SetMatrix(ShaderIds.TransformDelta, previousToCurrentLocal);
+            _solverCs.SetFloat(ShaderIds.TransformInertia, Mathf.Min(1f, inertia));
+            _solverCs.Dispatch(_kApplyTransform, Groups(Grid.VertexCount), 1, 1);
         }
 
         public void Step(float dt)
@@ -249,6 +267,7 @@ namespace Vela
             bool self = UpdateSelfCollision(profile);
             bool lra = LongRangeActive(profile);
             bool shear = profile.useShear;
+            Vector3 windDrift = aero ? Wind.NormalizedDirection * Wind.turbulenceSpeed : Vector3.zero;
             int bendDirections = profile.EffectiveBendingDirections;
             float alphaBend = profile.BendingCompliance() / (h * h);
 
@@ -275,8 +294,14 @@ namespace Vela
                 // a step-granular clock would hold the field still for 16 ms and then jump it. The wind is
                 // applied at the substep's end, in KUpdateVelocity, hence s + 1.
                 if (aero)
+                {
                     _solverCs.SetFloat(ShaderIds.WindTime, SimulationTime + (s + 1) * h);
+                    _solverCs.SetVector(ShaderIds.WindAdvection, _windAdvection + windDrift * ((s + 1) * h));
+                }
 
+                // Sequential lerp by the remaining fraction walks the pins linearly to rest without a
+                // step-start copy of them.
+                _solverCs.SetFloat(ShaderIds.PinSweep, 1f / (substeps - s));
                 _solverCs.Dispatch(_kPredict, nGroups, 1, 1);
 
                 for (int parity = 0; parity < 2; parity++)
@@ -343,6 +368,7 @@ namespace Vela
             }
 
             SimulationTime += dt;
+            _windAdvection += windDrift * dt;
         }
 
         /// <summary>Allocates or releases the hash to match the profile and pushes its constants.</summary>
@@ -426,7 +452,6 @@ namespace Vela
             _solverCs.SetFloat(ShaderIds.GustFrequency, wind.gustFrequency);
             _solverCs.SetFloat(ShaderIds.Turbulence, wind.EffectiveTurbulence);
             _solverCs.SetFloat(ShaderIds.TurbulenceScale, wind.turbulenceScale);
-            _solverCs.SetFloat(ShaderIds.TurbulenceSpeed, wind.turbulenceSpeed);
             // The dynamic-pressure half and the air density fold into the coefficients here rather than
             // costing two multiplies per triangle per substep.
             _solverCs.SetFloat(ShaderIds.DragFactor, 0.5f * wind.airDensity * profile.dragCoefficient);

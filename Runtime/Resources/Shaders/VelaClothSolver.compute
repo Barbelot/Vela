@@ -11,6 +11,7 @@
 #pragma kernel KCollideAnalytic
 #pragma kernel KUpdateVelocity
 #pragma kernel KReset
+#pragma kernel KApplyTransform
 
 #pragma multi_compile _ CLOTH_AERODYNAMICS
 
@@ -32,6 +33,9 @@ void KPredict(uint3 tid : SV_DispatchThreadID)
 
     if (w <= 0.0)
     {
+        // A pin displaced by KApplyTransform walks back to rest over the step's substeps, so the sheet
+        // is dragged at the transform's real speed instead of taking the whole frame's move as one kick.
+        WRITE_POS(id, lerp(p.xyz, _PosRest[id].xyz, _PinSweep), w);
         _Vel[id] = float4(0, 0, 0, 0);
         return;
     }
@@ -218,4 +222,22 @@ void KReset(uint3 tid : SV_DispatchThreadID)
     _Pos[id] = rest;
     _PosPrev[id] = rest;
     _Vel[id] = float4(0, 0, 0, 0);
+}
+
+// The whole sheet, pins included, stays where it was in the world when the transform moves; KPredict then
+// sweeps the pins back to their local rest over the next step and the constraints drag the sheet along.
+[numthreads(THREADS_1D, 1, 1)]
+void KApplyTransform(uint3 tid : SV_DispatchThreadID)
+{
+    uint id = tid.x;
+    if (id >= _VertexCount)
+        return;
+
+    float4 p = _Pos[id];
+    float3 prev = _PosPrev[id].xyz;
+    float3 v = _Vel[id].xyz;
+
+    WRITE_POS(id, lerp(p.xyz, mul(_TransformDelta, float4(p.xyz, 1.0)).xyz, _TransformInertia), p.w);
+    _PosPrev[id] = float4(lerp(prev, mul(_TransformDelta, float4(prev, 1.0)).xyz, _TransformInertia), p.w);
+    _Vel[id] = float4(lerp(v, mul((float3x3)_TransformDelta, v), _TransformInertia), 0);
 }

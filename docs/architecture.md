@@ -69,7 +69,8 @@ Three splits look arbitrary and are not:
   one scene breathe the same air.
 - **Damping is on the profile, gravity is on the component.** Damping is how a fabric dissipates its own
   motion; gravity is the scene pulling on it, and it is an acceleration, so it does not care what the sheet is
-  made of.
+  made of. `transformInertia` sits beside gravity for the same reason: it is this drape's motion through the
+  world, not a property of the fabric.
 - **`maxVelocity` is on the profile** because the two values that decide whether it is safe — `substeps` and
   the self-collision contact radius — are both profile-side.
 
@@ -92,7 +93,8 @@ fabric alone; `VelaClothSolver.AerodynamicsActive` ANDs them.
 
 ## Dispatch order per substep
 
-`h = dt / substeps`. Colliders are packed and step constants pushed once per step.
+`h = dt / substeps`. Colliders are packed and step constants pushed once per step. Before the frame's first
+step, `KApplyTransform` runs once when the transform has moved since the last frame.
 
 | # | Kernel(s) | Dispatches | Condition |
 |---|---|---|---|

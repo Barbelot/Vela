@@ -14,7 +14,7 @@ namespace Vela.Editor
             new VelaClothInspectorGroup("Quality",
                 "qualityProfile", "simulationRate", "maxStepsPerFrame", "preRollSteps"),
             new VelaClothInspectorGroup("Pinning", "pinMode"),
-            new VelaClothInspectorGroup("Environment", "forces", "wind"),
+            new VelaClothInspectorGroup("Environment", "forces", "wind", "transformInertia"),
             new VelaClothInspectorGroup("Rendering", "material", "castShadows", "writeMotionVectors")
         };
 

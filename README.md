@@ -27,7 +27,7 @@ engine modules only, no other package or project code.
 3. Assign a **Cloth Profile** — one of `Runtime/Resources/ClothQuality_{Realtime,Balanced,Offline}` or a
    fabric from `Samples/Profiles/`. With none assigned the component runs on built-in defaults.
 4. Leave `pinMode` on `TopEdge` and press Play: the sheet hangs, settles and answers the wind field under
-   **Environment**.
+   **Environment**. Move or rotate the GameObject and the pins drag the sheet through the air.
 
 `Samples/Scenes/ClothSimulation.unity` hangs the five sample fabrics side by side under one wind, with a box
 and sphere colliders to drape over. `Samples/Scenes/Voiles.unity` throws four sheer voiles across a white studio
@@ -64,6 +64,9 @@ The one component a drape needs. Its inspector is grouped into foldouts; every f
   past 12), `gustAmplitude` and `gustFrequency` (gusts travel downwind across the sheet), `turbulence`,
   `turbulenceScale` (eddies per metre: 0.2 is sheet-sized rolls, 3 is ripples), `turbulenceSpeed`, and
   `airDensity` (1.225 is sea-level air; raising it makes the whole wind bite harder).
+- `transformInertia` — how much the free vertices resist the transform's own motion. At 1 they stay where
+  they were in the world and the pins drag the sheet along; at 0 the whole sheet moves rigidly. A jump of
+  several metres in one frame leaves the sheet that far behind; call `Rebuild()` after a teleport.
 
 **Rendering**
 - `material` — assigned to the `MeshRenderer`.
@@ -88,7 +91,7 @@ can be shared by every drape made of that material.
 | Profile — the fabric | Component — this drape |
 |---|---|
 | `areaDensity`, the stiffness sliders, bending mode and directions | `sizeMeters`, `resolution`, `pivot`, `pinMode` |
-| `globalDamping`, `localDamping` | `gravity` |
+| `globalDamping`, `localDamping` | `gravity`, `transformInertia` |
 | `dragCoefficient`, `liftCoefficient`, `useAerodynamics` | the wind field and `airDensity` |
 | `substeps`, `maxVelocity`, long-range attachment, self-collision | `simulationRate`, `maxStepsPerFrame`, `preRollSteps`, rendering |
 

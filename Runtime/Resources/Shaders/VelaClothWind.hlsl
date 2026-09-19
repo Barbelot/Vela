@@ -9,7 +9,7 @@ float  _GustAmplitude;
 float  _GustFrequency;
 float  _Turbulence;
 float  _TurbulenceScale;
-float  _TurbulenceSpeed;
+float3 _WindAdvection;      // object space, how far the turbulence field has drifted downwind so far
 float  _WindTime;
 float  _DragFactor;         // 0.5 * airDensity * dragCoefficient
 float  _LiftFactor;         // 0.5 * airDensity * liftCoefficient
@@ -80,7 +80,7 @@ float3 ClothWindAt(float3 p)
     float3 w = _WindDir * (_WindSpeed * (1.0 + _GustAmplitude * sin(phase)));
 
     if (_Turbulence > 0.0)
-        w += _Turbulence * ClothCurlNoise((p - _WindDir * (_TurbulenceSpeed * _WindTime)) * _TurbulenceScale);
+        w += _Turbulence * ClothCurlNoise((p - _WindAdvection) * _TurbulenceScale);
 
     return w;
 }

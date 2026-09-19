@@ -33,6 +33,9 @@ uint   _Parity;
 uint   _Phase;
 uint   _LraAnchorCount;
 float  _LraSlack;
+float4x4 _TransformDelta;   // previous cloth frame -> current cloth frame
+float  _TransformInertia;
+float  _PinSweep;           // 1 / (substeps remaining in the step), the pins' share of their way back to rest
 
 // HLSL forbids writing a swizzle of an RWStructuredBuffer element, so every position write is a whole float4.
 #define WRITE_POS(id, p, w) _Pos[id] = float4(p, w)
