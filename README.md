@@ -30,8 +30,8 @@ engine modules only, no other package or project code.
    **Environment**.
 
 `Samples/Scenes/ClothSimulation.unity` hangs the five sample fabrics side by side under one wind, with a box
-and sphere colliders to drape over. `Samples/Scenes/Betta.unity` builds a betta fish out of seven sheets (see
-*Betta* below).
+and sphere colliders to drape over. `Samples/Scenes/Voiles.unity` throws four sheer voiles across a white studio
+(see *Voiles* below).
 
 ## Components
 
@@ -157,7 +157,7 @@ friction at once:
 | `ClothFabric_Denim` | 0.45 | Heavier, fewer and broader folds, resists twisting |
 | `ClothFabric_Canvas` | 0.60 | Sailcloth: holds its shape, swings slowly, barely ripples |
 | `ClothFabric_Leather` | 1.00 | Nearly rigid, deep sculpted creases, almost inert under wind |
-| `ClothFabric_FinMembrane` | 0.30 | The Betta fins: stiff in bending so a fan holds its shape, heavily damped, self-colliding |
+| `ClothFabric_Voile` | 0.05 | Barely there: falls slowly in wide soft folds, answers the least draught, self-colliding |
 
 `ClothQuality_Test_Substeps2` / `_Substeps32` are a calibration pair, not fabrics.
 
@@ -178,38 +178,61 @@ buffers; the materials in `Samples/Materials/` expose every dial.
 | `VelaClothArt_WeatheredPrint` | strain, world normal, curvature | A printed motif that cracks where stretched, dust on upward-facing cloth, grime in the folds |
 | `VelaClothArt_StainedGlass` | facing, velocity | Lead-came panes coloured from a palette, backlit from the far side, each pane's hue shifted by its own speed |
 | `VelaClothArt_Heraldic` | displacement, strain, facing | A different print on each face, flaking away where the sheet has moved furthest from rest or is stretched |
-| `VelaClothArt_BettaFin` | curvature, facing | Clips the sheet to a frayed fan and shades radiating rays with pleat lighting, a backlit membrane and dark tips |
+| `VelaClothArt_Voile` | facing, curvature | Sheer voile whose opacity follows the view ray's path through the cloth, so layers stack and the silhouette goes solid; optional pleats (used in *Voiles* below, not in this scene) |
+| `VelaClothArt_FabricVoile` | facing, curvature | The voile again on `VelaClothArt_Fabric.shadergraph`, an HDRP **Fabric** (Silk) Shader Graph: the same sheer alpha, hem and weave, but lit by every light with shadows, GI, transmission and motion vectors |
 
-### Betta
+### Fabric Shader Graph
 
-`Samples/Scenes/Betta.unity` recreates a betta fish: a capsule body with a `VelaClothCollider`, and seven
-`TopEdge`-pinned sheets on `VelaClothArt_BettaFin` (caudal, dorsal, anal, two pelvic, two pectoral), each
-rotated so its pinned edge lies along the body and the sheet points in the fin's direction. The fan silhouette
-is the shader's `clip`, so the physics still runs on the full rectangle. What keeps the fans open, since a plain
-sheet has no rays:
+`Samples/Shaders/VelaClothArt_Fabric.shadergraph` is the template for a lit cloth material. Duplicate it
+and wire your own look from the *Cloth Data (fragment)* group, which exposes per pixel: strain U/V, shear,
+signed curvature (concave toward the viewer), world-space velocity and speed, displacement from rest, pinned,
+and the sheet UV in metres. The data arrives through a vertex-stage Custom Function on
+`VelaClothArtData.hlsl` (`VelaClothVertex`) packed into three custom interpolators `VelaStrain`, `VelaMotion`
+and `VelaSheet`; the same include's `VelaClothSheet` gives the sheet size in the fragment stage.
 
-- **No gravity, and each fin's wind blows outward along its own direction.** A steady flow along the sheet pushes
-  every ripple to the tip and keeps it extended, the way a flag streams; a shared current instead folds the
-  fins that point across it, and any gravity hangs them down their pinned edge.
-- **`Slot.Back` / `Slot.Front`** are two thin box colliders 7 cm either side of the median plane. A sheet pinned
-  along one row is a hinge with no restoring force, and turbulence alone walks it edge-on within a minute; the
-  slot bounds that swing while leaving room to ripple. The pelvic and pectoral pins sit outside the slot.
-- **Pins sit just outside the body collider** (`thickness` 0.01). A pinned row inside a collider makes its
-  neighbours fight the projection every substep, which reads as crumpling at the fin base.
-- **`preRollSteps` is 0.** In Play mode the pre-roll runs from `OnEnable`, before the colliders have registered,
-  so a settled pre-roll would already have passed through the slot walls; with nothing to settle it is not needed.
+- It needs the **Cloth Art Binder** like the hand-written shaders; without it the sheet does not draw.
+- *Add Precomputed Velocity* is on, so with `writeMotionVectors` the sheet gets correct motion vectors.
+- Transmission (the backlight) reads a diffusion profile — the material defaults to HDRP's *Cotton Thin*.
+  A profile only works once it is in **Project Settings ▸ Graphics ▸ HDRP ▸ Default Volume ▸ Diffusion
+  Profile List**, or with *Auto Register Diffusion Profiles* enabled there.
+- Fabric type (Silk / Cotton Wool), transmission and surface type are graph settings, not material ones:
+  change them in the Graph Inspector. `Opacity Face On` at 1 makes the template read as opaque cloth.
+- The Shader Graph preview and the material thumbnail draw with unbound buffers and show a collapsed sheet;
+  only a scene with a binder shows the cloth.
 
-`_BaseWidth`, `_FanCurve` and `_EdgeFray` shape the fan; `_RayCount`, `_RaySplit` and `_PleatDepth` the rays;
-`_Diffuse` + `_Backlight` should stay near 1 in total or the pale tips clip and the gradient disappears.
+### Voiles
+
+`Samples/Scenes/Voiles.unity` is a white studio with four sheer voiles caught mid-fall: two long
+ones hanging from pins above the frame on `VelaClothArt_VoileIvory` and `VelaClothArt_VoileInk`, and two
+shorter ones blown in from below. What makes it read as voile rather than as cloth:
+
+- **Opacity follows the path length through the sheet.** A view ray crossing the cloth at an angle passes
+  through `1/cos θ` of it, so the face-on middle is sheer and the silhouette goes solid, and every overlap
+  darkens. That one term, not a texture, is the whole look; `_Opacity` sets it face on and `_MinFacing`
+  caps how solid the edges may get.
+- **The material is premultiplied alpha with no depth write**, so a sheet blends with itself in triangle order.
+  Layers of one colour hide the error; two very different colours crossing in one sheet would not.
+- **Long narrow sheets, not panels.** A wide pinned edge streams flat like a flag; a 2–3 m width over 6 m of
+  length twists and rolls into cones on its own.
+- **`Draft.Core.*` are three invisible sphere colliders** the falling cloth breaks over — they are what turns a
+  straight drop into a curl. Nothing renders them.
+- **Pins sit outside the frame** so the fabric enters and leaves the picture with no visible anchor.
+- **`Studio Volume` holds `Voiles`**, the scene's own volume profile: fixed exposure at 0 EV, no
+  tonemapping and no bloom, so the camera's white background stays white and the 0–1 material colours land as
+  authored. Sky is off; the camera clears to white.
+
+`preRollSteps` is 150 on every sheet, so the composition above is what the scene shows the moment it loads.
+Press Play and the cloth keeps falling: the arrangement stays but the exact folds do not.
 
 To use one on your own cloth, assign the material and add **Vela → Samples → Cloth Art Binder** next to the
 Cloth Simulation. The binder hands the position and velocity buffers and the grid constants to the material
 every frame and pushes the scene's directional light as the shading light (`sun` picks one explicitly);
 without it the sheet does not draw at all, since the shaders read a buffer that is otherwise unbound.
 
-These are stylized forward passes, not HDRP Lit: they cast shadows but receive none, take no GI, and stay
-out of the depth prepass, so SSAO, SSR, decals and per-object motion vectors do not apply to them. Colour is
-authored in 0–1 and ignores exposure.
+The hand-written ones are stylized forward passes, not HDRP Lit: they cast shadows but receive none, take
+no GI, and stay out of the depth prepass, so SSAO, SSR, decals and per-object motion vectors do not apply to
+them. Colour is authored in 0–1 and ignores exposure. `VelaClothArt_Voile` is transparent, so it neither casts
+nor receives a shadow. `VelaClothArt_Fabric` is the lit exception (see above).
 
 ## Tuning
 

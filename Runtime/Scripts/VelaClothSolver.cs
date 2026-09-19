@@ -103,7 +103,6 @@ namespace Vela
             _colliders = new VelaClothColliderRegistry();
 
             AllocateBuffers();
-            BindBuffers();
             PushGridConstants();
 
             _bounds = new VelaClothBounds(_meshWriteCs, _pos, Grid.VertexCount);
@@ -123,7 +122,8 @@ namespace Vela
                 _posPrevFrame = new GraphicsBuffer(GraphicsBuffer.Target.Structured, n, stride);
         }
 
-        void BindBuffers()
+        // Before every dispatch batch, not once: a shader reimport or device reset drops every buffer binding.
+        void BindSolverBuffers()
         {
             foreach (int k in new[]
                      {
@@ -140,16 +140,22 @@ namespace Vela
 
             _solverCs.SetBuffer(_kCollideAnalytic, ShaderIds.Colliders, _colliders.Buffer);
 
-            foreach (int k in new[] { _kWriteVertexBuffer, _kResetPrevFrame })
+            if (_lraAnchor != null)
             {
-                _meshWriteCs.SetBuffer(k, ShaderIds.Pos, _pos);
-                _meshWriteCs.SetBuffer(k, ShaderIds.PosPrev, _posPrev);
-                _meshWriteCs.SetBuffer(k, ShaderIds.PosRest, _posRest);
-                _meshWriteCs.SetBuffer(k, ShaderIds.Vel, _vel);
-
-                if (_writeMotionVectors)
-                    _meshWriteCs.SetBuffer(k, ShaderIds.PosPrevFrame, _posPrevFrame);
+                _solverCs.SetBuffer(_kLra, ShaderIds.LraAnchor, _lraAnchor);
+                _solverCs.SetBuffer(_kLra, ShaderIds.LraDist, _lraDist);
             }
+        }
+
+        void BindMeshWriteBuffers(int kernel)
+        {
+            _meshWriteCs.SetBuffer(kernel, ShaderIds.Pos, _pos);
+            _meshWriteCs.SetBuffer(kernel, ShaderIds.PosPrev, _posPrev);
+            _meshWriteCs.SetBuffer(kernel, ShaderIds.PosRest, _posRest);
+            _meshWriteCs.SetBuffer(kernel, ShaderIds.Vel, _vel);
+
+            if (_writeMotionVectors)
+                _meshWriteCs.SetBuffer(kernel, ShaderIds.PosPrevFrame, _posPrevFrame);
         }
 
         void PushGridConstants()
@@ -189,9 +195,6 @@ namespace Vela
             _lraDist = new GraphicsBuffer(GraphicsBuffer.Target.Structured, count, sizeof(float));
             _lraAnchor.SetData(tables.Anchors);
             _lraDist.SetData(tables.Distances);
-
-            _solverCs.SetBuffer(_kLra, ShaderIds.LraAnchor, _lraAnchor);
-            _solverCs.SetBuffer(_kLra, ShaderIds.LraDist, _lraDist);
             LongRangeAnchorCount = tables.AnchorCount;
         }
 
@@ -207,6 +210,7 @@ namespace Vela
         public void Reset()
         {
             SimulationTime = 0f;
+            BindSolverBuffers();
             _solverCs.Dispatch(_kReset, Groups(Grid.VertexCount), 1, 1);
             _colliders?.ClearHistory();
             ResetMotionVectorHistory();
@@ -218,6 +222,7 @@ namespace Vela
             if (!_writeMotionVectors)
                 return;
 
+            BindMeshWriteBuffers(_kResetPrevFrame);
             _meshWriteCs.Dispatch(_kResetPrevFrame, Groups(Grid.VertexCount), 1, 1);
         }
 
@@ -235,6 +240,7 @@ namespace Vela
             _colliders?.Pack();
 
             bool aero = AerodynamicsActive(profile);
+            BindSolverBuffers();
             PushStepConstants(h, profile, aero);
             _lastStepDt = dt;
 
@@ -430,6 +436,7 @@ namespace Vela
         /// <summary>Recomputes normals and tangents from grid neighbours straight into the mesh's own vertex buffer.</summary>
         public void WriteToMesh(GraphicsBuffer vertexBuffer, int vertexStride)
         {
+            BindMeshWriteBuffers(_kWriteVertexBuffer);
             _meshWriteCs.SetBuffer(_kWriteVertexBuffer, ShaderIds.VertexBuffer, vertexBuffer);
             _meshWriteCs.SetInt(ShaderIds.VertexStride, vertexStride);
             _meshWriteCs.Dispatch(_kWriteVertexBuffer, Groups(Grid.VertexCount), 1, 1);

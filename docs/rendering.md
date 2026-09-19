@@ -91,12 +91,22 @@ pattern generalises to any custom material:
 - The index buffer references vertices directly with no base vertex, so `SV_VertexID` is the grid id
   `y · W + x`, and a vertex shader can address its neighbours in `PositionBuffer` (`float4`: object-space
   position, `w` = inverse mass, `0` for a pinned vertex) and `VelocityBuffer` (`float4`: object-space m/s).
-- `VelaClothArtCommon.hlsl` derives, per vertex: strain along u and v (central-difference edge length over
-  rest spacing, one-sided at the border), shear (cosine between the two edges), curvature (Laplacian dotted with
-  the normal over rest area, in 1/m) and displacement from the rest position rebuilt from uv, sheet size and
-  pivot. The Laplacian uses the vertices two steps away: the adjacent-vertex stencil alternates row by row
-  with the solver's residual, and a one-sided stencil would read the border as a permanent crease, so each
-  axis is masked out there instead.
+- `VelaClothArtData.hlsl` declares the buffers and grid constants and derives, per vertex: strain along u and
+  v (central-difference edge length over rest spacing, one-sided at the border), shear (cosine between the two
+  edges), curvature (Laplacian dotted with the normal over rest area, in 1/m) and displacement from the rest
+  position rebuilt from uv, sheet size and pivot. The Laplacian uses the vertices two steps away: the
+  adjacent-vertex stencil alternates row by row with the solver's residual, and a one-sided stencil would read
+  the border as a permanent crease, so each axis is masked out there instead. It has no pipeline include, so
+  both the hand-written shaders and a Shader Graph can pull it in. `VelaClothArtCommon.hlsl` layers the
+  hand-written shaders' `Attributes`/`Varyings`, the sun globals and the shading helpers on top of it and
+  includes `UnityCG.cginc`, which is why a graph must never include Common.
+- **Shader Graph path** (`VelaClothArt_Fabric.shadergraph`): a `Vertex ID` node feeds a file-mode Custom
+  Function on `VelaClothArtData.hlsl` (`VelaClothVertex_float`) whose three float4 outputs go to custom
+  interpolator blocks `VelaStrain` (strainU, strainV, shear, curvature), `VelaMotion` (velocityOS, displacement)
+  and `VelaSheet` (sheetUv in metres, pinned). The Custom Function's file reference is the include's `.meta`
+  GUID, so the include must keep its meta. `_VelaGrid`/`_VelaSheet` are declared in the include rather than as
+  graph properties so the binder's `MaterialPropertyBlock` reaches them the same way it reaches the buffers.
+  The graph file itself is generated JSON; edit it in the Shader Graph window, never by hand.
 - `VelaClothArtBinder` binds the buffers and grid constants through a `MaterialPropertyBlock` in `OnEnable`
   and every `LateUpdate`, because `Rebuild()` recreates the buffers and same-object `Update` order is not
   guaranteed. A draw whose `StructuredBuffer` is unbound is dropped with a D3D12 warning, so the first binder
@@ -108,6 +118,16 @@ pattern generalises to any custom material:
   and `ZClip [_ZClip]` follow it while the legacy matrices would not. The forward pass keeps `UnityCG` because
   HDRP calls `SetupCameraProperties` for the camera. There is no `DepthForwardOnly` or `MotionVectors` pass, so
   the sheet is absent from the depth prepass and from per-object motion vectors.
+
+## Sheer cloth
+
+`VelaClothArt_Voile` is the one transparent sample shader: premultiplied alpha (`Blend One OneMinusSrcAlpha`)
+in the transparent queue with `ZWrite Off` and no `ShadowCaster` pass. Its alpha is
+`1 - (1 - opacity)^(1/|N·V|)`, Beer-Lambert through a sheet of constant density, which is what makes the
+silhouette solid while the face-on middle stays sheer. Sorting between sheets is HDRP's per-renderer distance
+sort; within one sheet the triangles blend in grid order, which is wrong but invisible while the sheet is one
+colour. Since the pass is transparent it is also absent from the depth buffer, so nothing depth-based — fog,
+SSR, TAA's depth rejection — sees the cloth.
 
 ## Self-shadowing across a fold
 

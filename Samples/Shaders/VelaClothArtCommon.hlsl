@@ -2,11 +2,8 @@
 #define VELA_CLOTH_ART_COMMON_INCLUDED
 
 #include "UnityCG.cginc"
+#include "VelaClothArtData.hlsl"
 
-StructuredBuffer<float4> _VelaPositions;
-StructuredBuffer<float4> _VelaVelocities;
-float4 _VelaGrid;         // W, H, restDx, restDy
-float4 _VelaSheet;        // size.x, size.y, pivot.x, pivot.y
 float4 _VelaSunDirection; // world space, towards the light, w = 1 once a binder has pushed it
 float4 _VelaSunColor;
 
@@ -16,23 +13,6 @@ struct Attributes
     float3 normalOS   : NORMAL;
     float4 tangentOS  : TANGENT;
     float2 uv         : TEXCOORD0;
-};
-
-struct ClothVertexData
-{
-    uint2  cell;
-    float2 uv;
-    float3 positionOS;
-    float3 normalOS;
-    float3 tangentOS;
-    float3 restPositionOS;
-    float3 displacementOS;
-    float3 velocityOS;
-    float  strainU;      // edge length over rest length minus one: 0 at rest, positive stretched
-    float  strainV;
-    float  shear;        // cosine between the u and v edges: 0 at rest
-    float  curvature;    // 1/m, positive when the sheet bends toward its normal
-    float  pinned;
 };
 
 struct Varyings
@@ -67,65 +47,9 @@ struct ClothSurface
     bool   front;
 };
 
-uint VelaClothId(uint x, uint y)
-{
-    return y * (uint)_VelaGrid.x + x;
-}
-
 ClothVertexData VelaReadClothVertex(uint vid, Attributes a)
 {
-    ClothVertexData d = (ClothVertexData)0;
-    d.uv = a.uv;
-    d.positionOS = a.positionOS;
-    d.normalOS = a.normalOS;
-    d.tangentOS = a.tangentOS.xyz;
-
-    uint w = (uint)_VelaGrid.x;
-    uint h = (uint)_VelaGrid.y;
-    if (w < 2 || h < 2)
-        return d;
-
-    uint x = vid % w;
-    uint y = vid / w;
-    uint xm = x > 0 ? x - 1 : x;
-    uint xp = min(x + 1, w - 1);
-    uint ym = y > 0 ? y - 1 : y;
-    uint yp = min(y + 1, h - 1);
-
-    float4 pc  = _VelaPositions[vid];
-    float3 pxm = _VelaPositions[VelaClothId(xm, y)].xyz;
-    float3 pxp = _VelaPositions[VelaClothId(xp, y)].xyz;
-    float3 pym = _VelaPositions[VelaClothId(x, ym)].xyz;
-    float3 pyp = _VelaPositions[VelaClothId(x, yp)].xyz;
-
-    float3 du = pxp - pxm;
-    float3 dv = pyp - pym;
-    float lenU = length(du);
-    float lenV = length(dv);
-    float restU = (xp - xm) * _VelaGrid.z;
-    float restV = (yp - ym) * _VelaGrid.w;
-
-    d.cell = uint2(x, y);
-    d.strainU = lenU / max(restU, 1e-6) - 1.0;
-    d.strainV = lenV / max(restV, 1e-6) - 1.0;
-    d.shear = dot(du / max(lenU, 1e-6), dv / max(lenV, 1e-6));
-
-    // Two vertices out: the adjacent-vertex Laplacian alternates row by row with the solver's residual.
-    // A one-sided stencil would read the border as a permanent crease, so each axis is dropped there.
-    float wx = (x > 1 && x + 2 < w) ? 1.0 : 0.0;
-    float wy = (y > 1 && y + 2 < h) ? 1.0 : 0.0;
-    uint xm2 = x > 1 ? x - 2 : x, xp2 = min(x + 2, w - 1);
-    uint ym2 = y > 1 ? y - 2 : y, yp2 = min(y + 2, h - 1);
-    float3 lap = wx * (_VelaPositions[VelaClothId(xp2, y)].xyz + _VelaPositions[VelaClothId(xm2, y)].xyz - 2.0 * pc.xyz)
-               + wy * (_VelaPositions[VelaClothId(x, yp2)].xyz + _VelaPositions[VelaClothId(x, ym2)].xyz - 2.0 * pc.xyz);
-    d.curvature = dot(lap, a.normalOS) / max(4.0 * _VelaGrid.z * _VelaGrid.w, 1e-8);
-
-    d.velocityOS = _VelaVelocities[vid].xyz;
-    d.pinned = pc.w == 0.0 ? 1.0 : 0.0;
-    d.restPositionOS = float3(x * _VelaGrid.z - _VelaSheet.z * _VelaSheet.x,
-                              y * _VelaGrid.w - _VelaSheet.w * _VelaSheet.y, 0.0);
-    d.displacementOS = pc.xyz - d.restPositionOS;
-    return d;
+    return VelaReadClothVertex(vid, a.positionOS, a.normalOS, a.tangentOS.xyz, a.uv);
 }
 
 Varyings VelaPackVaryings(ClothVertexData d)

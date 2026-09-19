@@ -10,29 +10,29 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3b0c9a41d7e24f6c8a55e1b207d4f930, type: 3}
-  m_Name: ClothFabric_FinMembrane
-  m_EditorClassIdentifier: Vela::Vela.VelaClothProfile
-  areaDensity: 0.3
-  substeps: 10
+  m_Name: ClothFabric_Voile
+  m_EditorClassIdentifier: 
+  areaDensity: 0.05
+  substeps: 12
   maxVelocity: 20
   structuralStiffness: 1
   useShear: 0
   shearStiffness: 0.9
-  bendingStiffness: 0.85
+  bendingStiffness: 0.05
   bendingMode: 0
-  bendingDirections: 4
-  globalDamping: 4
-  localDamping: 40
+  bendingDirections: 2
+  globalDamping: 0.5
+  localDamping: 10
   useLongRangeAttachment: 1
-  lraAnchorCount: 1
-  lraStretchAllowance: 0.03
+  lraAnchorCount: 2
+  lraStretchAllowance: 0.05
   useSelfCollision: 1
   selfCollisionThicknessMode: 0
   selfCollisionRadiusScale: 0.8
-  selfCollisionThickness: 0.015
+  selfCollisionThickness: 0.01
   selfCollisionStride: 2
   maxContactsPerVertex: 16
-  selfCollisionFriction: 0.2
+  selfCollisionFriction: 0.05
   useAerodynamics: 1
-  dragCoefficient: 1.2
-  liftCoefficient: 0.2
+  dragCoefficient: 1.15
+  liftCoefficient: 0.45

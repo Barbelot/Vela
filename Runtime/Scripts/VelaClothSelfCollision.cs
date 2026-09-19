@@ -27,6 +27,8 @@ namespace Vela
 
         readonly int _kHashClear, _kHashCount, _kScanLocal, _kScanBlocks, _kScanApply, _kHashSort, _kHashScatter;
         readonly int _kAccum, _kApply;
+        readonly int[] _kernels;
+        readonly GraphicsBuffer _pos, _posPrev;
 
         GraphicsBuffer _cellCount, _cellStart, _sortedIds, _scanBlocks, _deltaPos;
 
@@ -61,27 +63,19 @@ namespace Vela
             _kHashSort = _cs.FindKernel("KHashSort");
             _kAccum = _cs.FindKernel("KSelfCollideAccum");
             _kApply = _cs.FindKernel("KSelfCollideApply");
+            _kernels = new[]
+            {
+                _kHashClear, _kHashCount, _kScanLocal, _kScanBlocks, _kScanApply,
+                _kHashScatter, _kHashSort, _kAccum, _kApply
+            };
+            _pos = pos;
+            _posPrev = posPrev;
 
             _cellCount = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _numCells, sizeof(uint));
             _cellStart = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _numCells + 1, sizeof(uint));
             _sortedIds = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _vertexCount, sizeof(uint));
             _scanBlocks = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _scanBlockCount, sizeof(uint));
             _deltaPos = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _vertexCount, 4 * sizeof(float));
-
-            foreach (int k in new[]
-                     {
-                         _kHashClear, _kHashCount, _kScanLocal, _kScanBlocks, _kScanApply,
-                         _kHashScatter, _kHashSort, _kAccum, _kApply
-                     })
-            {
-                _cs.SetBuffer(k, ShaderIds.Pos, pos);
-                _cs.SetBuffer(k, ShaderIds.PosPrev, posPrev);
-                _cs.SetBuffer(k, ShaderIds.CellCount, _cellCount);
-                _cs.SetBuffer(k, ShaderIds.CellStart, _cellStart);
-                _cs.SetBuffer(k, ShaderIds.SortedIds, _sortedIds);
-                _cs.SetBuffer(k, ShaderIds.ScanBlocks, _scanBlocks);
-                _cs.SetBuffer(k, ShaderIds.DeltaPos, _deltaPos);
-            }
 
             _cs.SetInt(ShaderIds.W, grid.width);
             _cs.SetInt(ShaderIds.H, grid.height);
@@ -122,10 +116,26 @@ namespace Vela
         }
 
         /// <summary>Counting sort into contiguous cells: no atomic linked list, so neighbour reads stay coherent.</summary>
+        // Before every hash build, not once: a shader reimport or device reset drops every buffer binding.
+        void BindBuffers()
+        {
+            foreach (int k in _kernels)
+            {
+                _cs.SetBuffer(k, ShaderIds.Pos, _pos);
+                _cs.SetBuffer(k, ShaderIds.PosPrev, _posPrev);
+                _cs.SetBuffer(k, ShaderIds.CellCount, _cellCount);
+                _cs.SetBuffer(k, ShaderIds.CellStart, _cellStart);
+                _cs.SetBuffer(k, ShaderIds.SortedIds, _sortedIds);
+                _cs.SetBuffer(k, ShaderIds.ScanBlocks, _scanBlocks);
+                _cs.SetBuffer(k, ShaderIds.DeltaPos, _deltaPos);
+            }
+        }
+
         public void BuildHash()
         {
             using (HashMarker.Auto())
             {
+                BindBuffers();
                 int cellGroups = Groups(_numCells, Threads1D);
                 int vertexGroups = Groups(_vertexCount, Threads1D);
 

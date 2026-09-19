@@ -15,6 +15,7 @@ namespace Vela
         readonly ComputeShader _cs;
         readonly int _kClear, _kReduce;
         readonly int _vertexCount;
+        readonly GraphicsBuffer _positions;
 
         GraphicsBuffer _atomic;
         AsyncGPUReadbackRequest _request;
@@ -28,15 +29,12 @@ namespace Vela
         {
             _cs = meshWriteShader;
             _vertexCount = vertexCount;
+            _positions = positions;
 
             _kClear = _cs.FindKernel("KBoundsClear");
             _kReduce = _cs.FindKernel("KBoundsReduce");
 
             _atomic = new GraphicsBuffer(GraphicsBuffer.Target.Structured, Components, sizeof(uint));
-
-            _cs.SetBuffer(_kClear, ShaderIds.BoundsAtomic, _atomic);
-            _cs.SetBuffer(_kReduce, ShaderIds.BoundsAtomic, _atomic);
-            _cs.SetBuffer(_kReduce, ShaderIds.Pos, positions);
         }
 
         /// <summary>Issues a reduce when none is in flight and harvests a finished one. Returns true on the frames a new AABB arrives.</summary>
@@ -52,6 +50,9 @@ namespace Vela
 
             if (!_pending && _atomic != null)
             {
+                _cs.SetBuffer(_kClear, ShaderIds.BoundsAtomic, _atomic);
+                _cs.SetBuffer(_kReduce, ShaderIds.BoundsAtomic, _atomic);
+                _cs.SetBuffer(_kReduce, ShaderIds.Pos, _positions);
                 _cs.Dispatch(_kClear, 1, 1, 1);
                 _cs.Dispatch(_kReduce, Mathf.Max(1, (_vertexCount + Threads1D - 1) / Threads1D), 1, 1);
                 _request = AsyncGPUReadback.Request(_atomic);

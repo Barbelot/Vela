@@ -31,6 +31,9 @@ depend on HDRP (its shadow pass does, its script does not).
 - Compute shaders and `.hlsl` live in `Runtime/Resources/Shaders/` and load by name through `VelaClothResources`,
   so no component needs them wired by hand. **Each `VelaClothSolver` instantiates its own copies** of the
   `ComputeShader` assets, because keywords and uniforms on the asset are shared state between solvers.
+- **Buffers are rebound before every dispatch batch** (`Step`, `Reset`, `WriteToMesh`, the bounds reduce, the
+  self-collision hash), never once at construction: a shader reimport or graphics-device reset drops every
+  `SetBuffer` on the instance, and the next `Dispatch` then logs `Property (_Pos) at kernel index (n) is not set`.
 - `VelaClothProfile.cs.meta` and `VelaClothDebug.shader.meta` carry hand-authored GUIDs, because the `.asset`
   and `.mat` files that reference them are hand-authored too. Do not let Unity regenerate them.
 - `KCollideAnalytic` lives in `VelaClothSolver.compute` rather than its own file: a second `ComputeShader`
