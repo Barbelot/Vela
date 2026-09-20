@@ -44,12 +44,17 @@ depend on HDRP (its shadow pass does, its script does not).
   moving collider drag the cloth is per-cloth state; a shared registry would let the first cloth to pack in a
   frame consume the motion and leave the second with none. Colliders are packed once at the top of
   `VelaClothSolver.Step`, so a driver running two steps in a frame does not replay the same motion twice.
+- `VelaClothVolumeRegistry` is per solver for the same reason: each turbulence volume's scroll distance is
+  integrated from the solver's own `dt` (`Advance(dt)` at the end of `Step`), so a bake and a live run see the
+  same eddies and animating `scrollSpeed` never snaps the field. It packs two buffers, wind-mode and
+  acceleration-mode volumes, once per step beside the colliders.
 - Self-collision buffers are owned by `VelaClothSelfCollision`, which `VelaClothSolver.Step` constructs on the first
   step a profile wants it and disposes on the first step that does not. It is the one feature whose memory
   comes and goes; everything else is a fixed cost the profile merely re-tunes. That is what makes "toggling it
   off restores the prior cost exactly" true of memory as well as time.
-- `VelaClothForceSettings` holds only `gravity` and is kept as a struct on purpose: it is the seam a later force
-  lands on without disturbing the component's field list.
+- `VelaClothForceSettings` holds only `gravity`: it is the one force that belongs to the cloth. Every other
+  push is a `VelaClothForceVolume` in the scene, so a new kind of field is a new `VelaClothForceField` entry,
+  not a new component field.
 - The inspectors declare their foldout groups as data (`VelaClothInspectorSections`, `VelaClothInspectorGroup[]` per
   editor) and `Tests/VelaClothInspectorCoverageTests.cs` reads the same tables to assert every serialized field is
   drawn by exactly one group and has a non-empty tooltip. `Tests` therefore references the Editor asmdef.
@@ -64,9 +69,10 @@ surroundings lives on the component.
 
 Three splits look arbitrary and are not:
 
-- **Drag and lift are on the profile, `airDensity` is on the component.** The coefficients describe how a
-  surface catches air, so silk and leather differ in them; the density describes the air, and two drapes in
-  one scene breathe the same air.
+- **Drag and lift are on the profile, `airDensity` is on the component, the wind is a volume in the scene.**
+  The coefficients describe how a surface catches air, so silk and leather differ in them; the density
+  describes the air this drape breathes; the field itself is a property of a place, so several drapes share
+  it and it can be shaped spatially without any of them knowing.
 - **Damping is on the profile, gravity is on the component.** Damping is how a fabric dissipates its own
   motion; gravity is the scene pulling on it, and it is an acceleration, so it does not care what the sheet is
   made of. `transformInertia` sits beside gravity for the same reason: it is this drape's motion through the
@@ -74,8 +80,10 @@ Three splits look arbitrary and are not:
 - **`maxVelocity` is on the profile** because the two values that decide whether it is safe — `substeps` and
   the self-collision contact radius — are both profile-side.
 
-`VelaClothWindSettings.HasEffect` describes the air alone; `VelaClothProfile.HasAerodynamicResponse` the
-fabric alone; `VelaClothSolver.AerodynamicsActive` ANDs them.
+`VelaClothForceVolume.HasEffect` describes one volume alone; `VelaClothProfile.HasAerodynamicResponse` the
+fabric alone; `VelaClothSolver.AerodynamicsActive` ANDs the fabric, `AirDensity > 0` and "at least one wind
+volume packed". A packed wind volume whose net field is zero still yields still-air drag, which is the
+physically right answer.
 
 ## Dirty flags
 
@@ -93,20 +101,20 @@ fabric alone; `VelaClothSolver.AerodynamicsActive` ANDs them.
 
 ## Dispatch order per substep
 
-`h = dt / substeps`. Colliders are packed and step constants pushed once per step. Before the frame's first
-step, `KApplyTransform` runs once when the transform has moved since the last frame.
+`h = dt / substeps`. Colliders and force volumes are packed and step constants pushed once per step. Before
+the frame's first step, `KApplyTransform` runs once when the transform has moved since the last frame.
 
 | # | Kernel(s) | Dispatches | Condition |
 |---|---|---|---|
 | 0 | `KLra` | 1 | once, outside the loop, on the step the constraint activates |
-| 1 | `KPredict` | 1 | |
+| 1 | `KPredict` | 1 | reads `_ForceVolumes` (acceleration mode) beside gravity |
 | 2 | `KDistanceH`, `KDistanceV` × 2 parities | 4 | |
 | 3 | `KShearA`, `KShearB` × 2 parities | 4 | `useShear` |
 | 4 | `KBendH`, `KBendV` (+ `KBendDiagA`, `KBendDiagB`) × 3 phases | 6 or 12 | |
 | 5 | `KLra` | 1 | long-range attachment active |
 | 6 | hash build (7) + `KSelfCollideAccum`, `KSelfCollideApply` | 9 | `useSelfCollision`, every `selfCollisionStride`-th substep |
 | 7 | `KCollideAnalytic` | 1 | at least one collider |
-| 8 | `KUpdateVelocity` | 1 | |
+| 8 | `KUpdateVelocity` | 1 | reads `_WindVolumes` under `CLOTH_AERODYNAMICS` |
 
 Default profile (shear off, two bending directions, self-collision off) is 13 dispatches per substep. Two
 orderings are load-bearing:
@@ -118,7 +126,9 @@ orderings are load-bearing:
   `_Pos` and `_Vel`, so a gather over neighbouring vertices there races sibling threads and costs
   bit-reproducibility. `KUpdateVelocity` only reads `_Pos`/`_PosPrev` and derives every velocity from them,
   so the gather is exact there. The impulse lands half a substep later, which is not observable; `_WindTime`
-  is therefore pushed per substep as `SimulationTime + (s + 1) · h`.
+  is therefore pushed per substep as `SimulationTime + (s + 1) · h`, and `_SubstepOffset = (s + 1) · h`
+  advances each turbulence volume's scroll within the step. Acceleration volumes are safe in `KPredict`
+  because they read only the thread's own vertex.
 
 Per rendered frame: `KWriteVertexBuffer`, then `KBoundsClear` + `KBoundsReduce` only when no readback is in
 flight.

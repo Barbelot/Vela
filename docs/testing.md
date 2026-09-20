@@ -17,8 +17,9 @@ compute-capable device.
 - `VelaClothSelfCollisionHashTests` — the GPU prefix sum matches a CPU exclusive scan for cell counts that are
   **not** a multiple of the 512-wide scan block (that off-by-one corrupts the hash silently, as sporadic missed
   contacts rather than a crash), and the counting sort places every vertex exactly once in its own cell.
-- `VelaClothInspectorCoverageTests` — every serialized field on `VelaClothSimulation`, `VelaClothProfile` and
-  `VelaClothCollider` is drawn by exactly one inspector group and carries a non-empty tooltip. This is the check
+- `VelaClothInspectorCoverageTests` — every serialized field on `VelaClothSimulation`, `VelaClothProfile`,
+  `VelaClothCollider` and `VelaClothForceVolume` is drawn by exactly one inspector group and carries a non-empty
+  tooltip. This is the check
   most likely to rot the next time a field is added.
 
 ## Manual checks that are not obvious
@@ -27,8 +28,12 @@ compute-capable device.
   **sag distance** of the bottom edge: same stiffness, 16× the substeps, the edge must hang to the same length.
   The pair carries a deliberately soft `structuralStiffness = 0.33`, because at `1` the compliance is `0`, the
   `α̃ = α / h²` division is `0 / h²` either way and the test is blind. Both turn `useLongRangeAttachment`
-  **and** `useAerodynamics` off: long-range attachment caps sag at the geodesic, and wind moves the sheet the
-  reading is taken from — with either on, every reading collapses or wanders. Oscillation speed is not the
+  off, and every force volume in the scene must be disabled: long-range attachment caps sag at the geodesic,
+  and wind moves the sheet the reading is taken from — with either on, every reading collapses or wanders.
+- **Force volumes** — a box Vortex volume overlapping half a sheet, once in Wind mode and once in
+  Acceleration mode: only the vertices inside swirl, the blend edge is soft, and `global` reaches the whole
+  sheet. A disabled volume, or one on a layer outside the cloth's `volumeMask`, changes nothing. Rotating a
+  Directional volume in the scene view turns the wind with it. Oscillation speed is not the
   reading: at higher substep counts a stiff sheet legitimately converges closer to inextensible and bounces
   faster, which is convergence, not a compliance bug.
 - **Bending and shear are invisible on an edge-pinned sheet under uniform gravity.** The equilibrium is the

@@ -26,4 +26,27 @@ namespace Vela.Internal
         public uint type;
         public uint pad0, pad1, pad2;
     }
+
+    /// <summary>One force volume as the solver sees it, in cloth object space like <see cref="GpuCollider"/>. Fields are evaluated in volume space so a gust or an eddy stays put in the world while the cloth moves through it.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct GpuVolume
+    {
+        public const int Stride = 2 * 64 + 3 * 16 + 16;
+
+        public Matrix4x4 clothToVolume;
+        public Matrix4x4 volumeToCloth;
+
+        /// <summary>Box: xyz = half extents. Sphere: x = radius. w = blend distance in metres, fading inward from the surface.</summary>
+        public Vector4 shapeParams;
+
+        /// <summary>x = strength × intensity, y = gust amplitude, z = gust frequency, w = weight.</summary>
+        public Vector4 paramsA;
+
+        /// <summary>Vortex: x = inward pull × intensity, y = axial lift × intensity. Turbulence: x = scroll speed × intensity, z = noise scale, w = metres already scrolled along +Z.</summary>
+        public Vector4 paramsB;
+
+        public uint shape;
+        public uint field;
+        public uint pad0, pad1;
+    }
 }

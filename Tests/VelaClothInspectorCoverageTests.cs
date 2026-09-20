@@ -28,6 +28,8 @@ namespace Vela.Tests
                 .SetName("VelaClothProfile");
             yield return new TestCaseData(typeof(VelaClothCollider), VelaClothColliderEditor.Groups)
                 .SetName("VelaClothCollider");
+            yield return new TestCaseData(typeof(VelaClothForceVolume), VelaClothForceVolumeEditor.Groups)
+                .SetName("VelaClothForceVolume");
         }
 
         [Test]

@@ -57,14 +57,12 @@ namespace Vela.Internal
         public static readonly int Parity = Shader.PropertyToID("_Parity");
         public static readonly int Phase = Shader.PropertyToID("_Phase");
 
-        public static readonly int WindDir = Shader.PropertyToID("_WindDir");
-        public static readonly int WindSpeed = Shader.PropertyToID("_WindSpeed");
-        public static readonly int GustAmplitude = Shader.PropertyToID("_GustAmplitude");
-        public static readonly int GustFrequency = Shader.PropertyToID("_GustFrequency");
-        public static readonly int Turbulence = Shader.PropertyToID("_Turbulence");
-        public static readonly int TurbulenceScale = Shader.PropertyToID("_TurbulenceScale");
-        public static readonly int WindAdvection = Shader.PropertyToID("_WindAdvection");
+        public static readonly int WindVolumes = Shader.PropertyToID("_WindVolumes");
+        public static readonly int WindVolumeCount = Shader.PropertyToID("_WindVolumeCount");
+        public static readonly int ForceVolumes = Shader.PropertyToID("_ForceVolumes");
+        public static readonly int ForceVolumeCount = Shader.PropertyToID("_ForceVolumeCount");
         public static readonly int WindTime = Shader.PropertyToID("_WindTime");
+        public static readonly int SubstepOffset = Shader.PropertyToID("_SubstepOffset");
         public static readonly int DragFactor = Shader.PropertyToID("_DragFactor");
         public static readonly int LiftFactor = Shader.PropertyToID("_LiftFactor");
     }

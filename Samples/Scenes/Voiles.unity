@@ -330,18 +330,12 @@ MonoBehaviour:
   maxStepsPerFrame: 3
   preRollSteps: 900
   pinMode: 1
-  wind:
-    intensity: 1
-    direction: {x: 0, y: 0.05, z: 0}
-    speed: 2.9
-    gustAmplitude: 0
-    gustFrequency: 0.14
-    turbulence: 1.2
-    turbulenceScale: 0.7
-    turbulenceSpeed: 0.6
-    airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  airDensity: 1.225
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   transformInertia: 1
   material: {fileID: 2100000, guid: 5c9d13a7e28b4f34a0761bd2c4e98f06, type: 2}
   castShadows: 0
@@ -471,18 +465,12 @@ MonoBehaviour:
   maxStepsPerFrame: 3
   preRollSteps: 900
   pinMode: 1
-  wind:
-    intensity: 1
-    direction: {x: 0, y: 0.05, z: 0}
-    speed: 2.9
-    gustAmplitude: 0
-    gustFrequency: 0.12
-    turbulence: 1.2
-    turbulenceScale: 0.7
-    turbulenceSpeed: 0.6
-    airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  airDensity: 1.225
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   transformInertia: 1
   material: {fileID: 2100000, guid: 7e41b8c05d3a49f4ab2c6e07d951f38a, type: 2}
   castShadows: 0
@@ -612,18 +600,12 @@ MonoBehaviour:
   maxStepsPerFrame: 3
   preRollSteps: 150
   pinMode: 2
-  wind:
-    intensity: 1
-    direction: {x: 0.62, y: 0.72, z: 0.08}
-    speed: 3.5
-    gustAmplitude: 0.6
-    gustFrequency: 0.16
-    turbulence: 2.2
-    turbulenceScale: 0.5
-    turbulenceSpeed: 0.6
-    airDensity: 1.225
   forces:
     gravity: {x: 0, y: -0.5, z: 0}
+  airDensity: 1.225
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   transformInertia: 1
   material: {fileID: 2100000, guid: 7e41b8c05d3a49f4ab2c6e07d951f38a, type: 2}
   castShadows: 0
@@ -753,18 +735,12 @@ MonoBehaviour:
   maxStepsPerFrame: 3
   preRollSteps: 150
   pinMode: 2
-  wind:
-    intensity: 1
-    direction: {x: -0.52, y: 0.76, z: -0.08}
-    speed: 3.5
-    gustAmplitude: 0.6
-    gustFrequency: 0.15
-    turbulence: 2.1
-    turbulenceScale: 0.45
-    turbulenceSpeed: 0.6
-    airDensity: 1.225
   forces:
     gravity: {x: 0, y: -0.5, z: 0}
+  airDensity: 1.225
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   transformInertia: 1
   material: {fileID: 2100000, guid: 5c9d13a7e28b4f34a0761bd2c4e98f06, type: 2}
   castShadows: 0
@@ -1389,6 +1365,68 @@ Transform:
   - {fileID: 204001}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &872813844
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 872813845}
+  - component: {fileID: 872813846}
+  m_Layer: 0
+  m_Name: Wind.Directional
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &872813845
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 872813844}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1611898321}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &872813846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 872813844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b324a28784509841a7aa547da285c83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vela::Vela.VelaClothForceVolume
+  global: 1
+  shape: 0
+  size: {x: 2, y: 2, z: 2}
+  radius: 1
+  blendDistance: 0.5
+  weight: 1
+  mode: 0
+  field: 0
+  intensity: 1
+  strength: 2.9
+  gustAmplitude: 0.386
+  gustFrequency: 0.14
+  inwardPull: 0
+  axialLift: 0
+  noiseScale: 0.5
+  scrollSpeed: 0
+  alwaysDrawGizmo: 1
+  gizmoColor: {r: 0.55, g: 1, b: 0.45, a: 0.9}
 --- !u!1 &1186556037
 GameObject:
   m_ObjectHideFlags: 0
@@ -1402,6 +1440,7 @@ GameObject:
   - component: {fileID: 1186556041}
   - component: {fileID: 1186556040}
   - component: {fileID: 1186556039}
+  - component: {fileID: 1186556043}
   m_Layer: 0
   m_Name: Voile
   m_TagString: Untagged
@@ -1417,13 +1456,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1186556037}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0.0453618, w: 0.9989706}
-  m_LocalPosition: {x: -1.28, y: -0.24, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.28, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1300001}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -5.2}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1186556039
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1457,18 +1496,12 @@ MonoBehaviour:
   maxStepsPerFrame: 3
   preRollSteps: 60
   pinMode: 1
-  wind:
-    intensity: 1
-    direction: {x: 0, y: 0.05, z: 0}
-    speed: 2.9
-    gustAmplitude: 0.386
-    gustFrequency: 0.14
-    turbulence: 2
-    turbulenceScale: 0.7
-    turbulenceSpeed: 2
-    airDensity: 1.225
   forces:
     gravity: {x: 0, y: 9.81, z: 0}
+  airDensity: 1.225
+  volumeMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   transformInertia: 1
   material: {fileID: 2100000, guid: 93825ac2c292bba48a471854e120803f, type: 2}
   castShadows: 1
@@ -1530,6 +1563,32 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1186556037}
   m_Mesh: {fileID: 0}
+--- !u!114 &1186556043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1186556037}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 543ddbe12367a4899b011d43ef41f357, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::Klak.Motion.BrownianMotion
+  _randomSeed: 0
+  _randomizeSeed: 1
+  _enablePositionNoise: 0
+  _enableRotationNoise: 1
+  _positionFrequency: 0.2
+  _rotationFrequency: 0.2
+  _positionAmplitude: 0.5
+  _rotationAmplitude: 360
+  _positionScale: {x: 1, y: 1, z: 1}
+  _rotationScale: {x: 1, y: 0, z: 0}
+  _positionFractalLevel: 3
+  _rotationFractalLevel: 1
+  _positionTimeOffset: 0
+  _rotationTimeOffset: 0
 --- !u!1 &1575011646
 GameObject:
   m_ObjectHideFlags: 0
@@ -1769,6 +1828,101 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1611898320
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1611898321}
+  m_Layer: 0
+  m_Name: Wind
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1611898321
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1611898320}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 872813845}
+  - {fileID: 1680932726}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1680932725
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1680932726}
+  - component: {fileID: 1680932727}
+  m_Layer: 0
+  m_Name: Wind.Turbulence
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1680932726
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1680932725}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1611898321}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1680932727
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1680932725}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b324a28784509841a7aa547da285c83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vela::Vela.VelaClothForceVolume
+  global: 1
+  shape: 0
+  size: {x: 2, y: 2, z: 2}
+  radius: 1
+  blendDistance: 0.5
+  weight: 1
+  mode: 0
+  field: 3
+  intensity: 1
+  strength: 2
+  gustAmplitude: 0
+  gustFrequency: 0.14
+  inwardPull: 0
+  axialLift: 0
+  noiseScale: 0.7
+  scrollSpeed: 2
+  alwaysDrawGizmo: 1
+  gizmoColor: {r: 0.55, g: 1, b: 0.45, a: 0.9}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1778,3 +1932,4 @@ SceneRoots:
   - {fileID: 1200001}
   - {fileID: 1300001}
   - {fileID: 1575011649}
+  - {fileID: 1611898321}

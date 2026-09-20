@@ -89,7 +89,7 @@ namespace Vela
         [Tooltip("Coulomb friction at a self contact: 0 lets folds slide over each other, 1 makes them grip.")]
         [Range(0f, 1f)] public float selfCollisionFriction = 0.3f;
 
-        [Tooltip("Per-triangle drag and lift. The only path the wind settings have into the cloth, so off makes the whole field inert — and drops the heaviest ALU in the solver.")]
+        [Tooltip("Per-triangle drag and lift. The only path wind volumes have into the cloth, so off makes every one of them inert (acceleration volumes still act) — and drops the heaviest ALU in the solver.")]
         public bool useAerodynamics = true;
 
         [Tooltip("Force along the flow. Drag alone gives a limp, wet look. Around 1 for cloth.")]

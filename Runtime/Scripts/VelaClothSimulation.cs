@@ -30,17 +30,20 @@ namespace Vela
         [Tooltip("Steps allowed in a single frame. On a hitch the sim falls behind in slow motion instead of spiralling.")]
         [SerializeField, Min(1)] int maxStepsPerFrame = 3;
 
-        [Tooltip("Steps run at rebuild so the drape starts settled instead of snapping down from flat. Wind runs during them too.")]
+        [Tooltip("Steps run at rebuild so the drape starts settled instead of snapping down from flat. Force volumes act during them too.")]
         [SerializeField, Min(0)] int preRollSteps = 60;
 
         [Tooltip("Which vertices are held in place. With nothing pinned, long-range attachment disables itself.")]
         [SerializeField] VelaClothPinMode pinMode = VelaClothPinMode.TopEdge;
 
-        [Tooltip("The air around this drape, in world space. How strongly the cloth answers it is the profile's drag and lift.")]
-        [SerializeField] VelaClothWindSettings wind = VelaClothWindSettings.Default;
-
         [Tooltip("Forces acting on the drape from outside it, in world space.")]
         [SerializeField] VelaClothForceSettings forces = VelaClothForceSettings.Default;
+
+        [Tooltip("Air density in kg/m³. 1.225 is sea-level air; raising it makes every wind volume bite harder, 0 makes them all inert.")]
+        [SerializeField, Min(0f)] float airDensity = 1.225f;
+
+        [Tooltip("Only Cloth Force Volumes on these layers reach this cloth.")]
+        [SerializeField] LayerMask volumeMask = ~0;
 
         [Tooltip("How much the free vertices resist the transform's own motion. 1 leaves them where they were in the world and lets the pins drag the sheet along; 0 carries the whole sheet rigidly.")]
         [SerializeField, Range(0f, 1f)] float transformInertia = 1f;
@@ -76,7 +79,9 @@ namespace Vela
         public bool LongRangeActive => _solver != null && _solver.LongRangeActive(Profile);
         public bool AerodynamicsActive => _solver != null && _solver.AerodynamicsActive(Profile);
         public VelaClothForceSettings Forces => forces;
-        public VelaClothWindSettings Wind => wind;
+        public float AirDensity => airDensity;
+        public int WindVolumeCount => _solver?.Volumes?.WindCount ?? 0;
+        public int ForceVolumeCount => _solver?.Volumes?.ForceCount ?? 0;
 
         /// <summary>Null until a profile turns self-collision on, and null again the step after it goes off.</summary>
         public VelaClothSelfCollision SelfCollision => _solver?.SelfCollision;
@@ -216,18 +221,15 @@ namespace Vela
         {
             _solver.Profile = qualityProfile;
             _solver.Colliders.Cloth = transform;
+            _solver.Volumes.Cloth = transform;
+            _solver.Volumes.Mask = volumeMask;
+            _solver.AirDensity = airDensity;
 
-            // Gravity and wind are authored in world space, but the solver runs in object space — without this,
-            // rotating the cloth rotates both with it and a tilted sheet still behaves as an untilted one.
-            Quaternion toObject = Quaternion.Inverse(transform.rotation);
-
+            // Gravity is authored in world space, but the solver runs in object space — without this,
+            // rotating the cloth rotates it too and a tilted sheet still behaves as an untilted one.
             VelaClothForceSettings local = forces;
-            local.gravity = toObject * forces.gravity;
+            local.gravity = Quaternion.Inverse(transform.rotation) * forces.gravity;
             _solver.Forces = local;
-
-            VelaClothWindSettings localWind = wind;
-            localWind.direction = toObject * wind.NormalizedDirection;
-            _solver.Wind = localWind;
 
             _driver.SimulationRate = simulationRate;
             _driver.MaxStepsPerFrame = maxStepsPerFrame;

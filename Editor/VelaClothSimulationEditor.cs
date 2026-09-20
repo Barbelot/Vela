@@ -14,7 +14,7 @@ namespace Vela.Editor
             new VelaClothInspectorGroup("Quality",
                 "qualityProfile", "simulationRate", "maxStepsPerFrame", "preRollSteps"),
             new VelaClothInspectorGroup("Pinning", "pinMode"),
-            new VelaClothInspectorGroup("Environment", "forces", "wind", "transformInertia"),
+            new VelaClothInspectorGroup("Environment", "forces", "airDensity", "volumeMask", "transformInertia"),
             new VelaClothInspectorGroup("Rendering", "material", "castShadows", "writeMotionVectors")
         };
 
@@ -87,7 +87,7 @@ namespace Vela.Editor
                 Line("bending", profile.bendingStiffness, profile.BendingCompliance(), invH2,
                     bendingScale) +
                 Damping("damping", profile, grid, h) +
-                Wind(profile, cloth.Wind) +
+                Wind(profile, cloth) +
                 LongRange(profile, cloth.LongRangeActive, cloth.LongRangeAnchorCount) +
                 SelfCollisionLines(profile, grid, self, substeps, _hashRecorder, _resolveRecorder) +
                 $"{colliders} collider{(colliders == 1 ? "" : "s")}\n" +
@@ -130,26 +130,26 @@ namespace Vela.Editor
                    $"smoothing this grid can carry, so it acts as {1f / (h * VelaClothConstraintScale.SmoothingScale(grid)):0.#} /s\n";
         }
 
-        // Pressure at the quoted speed is what an artist can compare against the sheet's weight per area; the
-        // coefficients and the density on their own say nothing about whether the wind will lift this drape.
-        static string Wind(VelaClothProfile profile, VelaClothWindSettings wind)
+        // Counts come from the solver's registry after its last pack, so they reflect the mask and each volume's HasEffect.
+        static string Wind(VelaClothProfile profile, VelaClothSimulation cloth)
         {
+            int wind = cloth.WindVolumeCount;
+            int force = cloth.ForceVolumeCount;
+            string forces = $"{force} acceleration volume{(force == 1 ? "" : "s")}";
+
             if (!profile.useAerodynamics)
-                return "wind        aerodynamics off\n";
+                return $"volumes     aerodynamics off, {forces}\n";
 
             if (!profile.HasAerodynamicResponse)
-                return "wind        fabric has no drag and no lift, so the field cannot reach it\n";
+                return $"volumes     fabric has no drag and no lift, so wind cannot reach it; {forces}\n";
 
-            if (!wind.HasEffect)
-                return "wind        still air (no intensity, no speed, no turbulence, or no air density)\n";
+            if (cloth.AirDensity <= 0f)
+                return $"volumes     air density 0, so wind cannot reach it; {forces}\n";
 
-            float speed = wind.EffectiveSpeed;
-            float turbulence = wind.EffectiveTurbulence;
-            float peak = speed * (1f + wind.gustAmplitude) + turbulence;
-            float pressure = 0.5f * wind.airDensity * peak * peak;
+            if (wind == 0)
+                return $"volumes     no wind volume reaches this cloth, {forces}\n";
 
-            return $"wind        {speed:0.#} m/s +{wind.gustAmplitude * 100f:0}% gust " +
-                   $"+{turbulence:0.#} swirl, peak {pressure:0.#} Pa\n";
+            return $"volumes     {wind} wind, {forces}\n";
         }
 
         static string LongRange(VelaClothProfile profile, bool active, int anchors)

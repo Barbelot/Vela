@@ -26,12 +26,13 @@ engine modules only, no other package or project code.
 2. Assign a material: `Rendering/HDRP/VelaClothLit_HDRP.mat`, or `VelaClothDebug.mat` to see normals, UVs, velocity or front/back facing.
 3. Assign a **Cloth Profile** — one of `Runtime/Resources/ClothQuality_{Realtime,Balanced,Offline}` or a
    fabric from `Samples/Profiles/`. With none assigned the component runs on built-in defaults.
-4. Leave `pinMode` on `TopEdge` and press Play: the sheet hangs, settles and answers the wind field under
-   **Environment**. Move or rotate the GameObject and the pins drag the sheet through the air.
+4. Leave `pinMode` on `TopEdge` and press Play: the sheet hangs and settles. Add **GameObject → Vela → Force
+   Volume** for wind (see *Cloth Force Volume*). Move or rotate the GameObject and the pins drag the sheet
+   through the air.
 
-`Samples/Scenes/ClothSimulation.unity` hangs the five sample fabrics side by side under one wind, with a box
-and sphere colliders to drape over. `Samples/Scenes/Voiles.unity` throws four sheer voiles across a white studio
-(see *Voiles* below).
+`Samples/Scenes/ClothSimulation.unity` hangs the five sample fabrics side by side under one set of wind
+volumes, with a box and sphere colliders to drape over. `Samples/Scenes/Voiles.unity` throws four sheer voiles
+across a white studio (see *Voiles* below).
 
 ## Components
 
@@ -52,18 +53,17 @@ The one component a drape needs. Its inspector is grouped into foldouts; every f
 - `maxStepsPerFrame` — steps allowed in one frame; on a hitch the sim falls behind in slow motion rather than
   spiralling (default 3).
 - `preRollSteps` — steps run at rebuild so the drape starts settled instead of snapping down from flat
-  (default 60). Wind runs during them too.
+  (default 60). Force volumes act during them too.
 
 **Pinning**
 - `pinMode` — `None`, `TopEdge`, `TopCorners` or `LeftEdge`. `Custom` is reserved.
 
 **Environment**
-- `forces.gravity` — world-space acceleration in m/s².
-- `wind` — the air around this drape, in world space: `intensity` (scales `speed` and `turbulence` together;
-  0 is still air, 1 leaves them as authored), `direction`, `speed` (m/s; a flag lifts around 3 and snaps taut
-  past 12), `gustAmplitude` and `gustFrequency` (gusts travel downwind across the sheet), `turbulence`,
-  `turbulenceScale` (eddies per metre: 0.2 is sheet-sized rolls, 3 is ripples), `turbulenceSpeed`, and
-  `airDensity` (1.225 is sea-level air; raising it makes the whole wind bite harder).
+- `forces.gravity` — world-space acceleration in m/s². Every other push comes from *Cloth Force Volumes* in
+  the scene.
+- `airDensity` — kg/m³ of the air the wind volumes blow through; 1.225 is sea-level air, raising it makes
+  every wind bite harder, 0 makes them all inert.
+- `volumeMask` — only force volumes on these layers reach this cloth.
 - `transformInertia` — how much the free vertices resist the transform's own motion. At 1 they stay where
   they were in the world and the pins drag the sheet along; at 0 the whole sheet moves rigidly. A jump of
   several metres in one frame leaves the sheet that far behind; call `Rebuild()` after a teleport.
@@ -75,7 +75,8 @@ The one component a drape needs. Its inspector is grouped into foldouts; every f
 
 **Diagnostics** (collapsed by default) reports what the profile and this grid resolve to together: substeps
 per second, each constraint family's effective compliance and per-substep response, damping time constants,
-wind pressure, the long-range and self-collision state, and dispatch counts. Reading it while dragging a slider
+how many wind and acceleration volumes reach the cloth, the long-range and self-collision state, and dispatch
+counts. Reading it while dragging a slider
 is the intended way to tune — a response in single digits means that setting is doing almost nothing in this
 scene.
 
@@ -92,7 +93,7 @@ can be shared by every drape made of that material.
 |---|---|
 | `areaDensity`, the stiffness sliders, bending mode and directions | `sizeMeters`, `resolution`, `pivot`, `pinMode` |
 | `globalDamping`, `localDamping` | `gravity`, `transformInertia` |
-| `dragCoefficient`, `liftCoefficient`, `useAerodynamics` | the wind field and `airDensity` |
+| `dragCoefficient`, `liftCoefficient`, `useAerodynamics` | `airDensity`, `volumeMask` (the wind itself is a force volume in the scene) |
 | `substeps`, `maxVelocity`, long-range attachment, self-collision | `simulationRate`, `maxStepsPerFrame`, `preRollSteps`, rendering |
 
 **Fabric** — `areaDensity`, kg/m² (silk 0.06, cotton 0.2, denim 0.45, leather 1). Decides how hard wind
@@ -139,6 +140,35 @@ only for the cloth.
   `friction` is 0 slips, 1 sticks.
 - A moving collider drags the cloth with it rather than shaving through it.
 - `alwaysDrawGizmo` and `gizmoColor`, since the volume has no renderer.
+
+### Cloth Force Volume
+
+Add **GameObject → Vela → Force Volume** (or **Vela → Cloth Force Volume** on any GameObject). A volume is a
+region of space carrying a field; every cloth samples the volumes it overlaps, up to 16 wind and 16
+acceleration volumes each. Nothing on the cloth references them: place them like HDRP volumes.
+
+- **`mode`** — how the field reaches the cloth. **Wind** is a velocity in m/s the profile's drag and lift
+  answer: orientation-dependent, it saturates once the sheet moves with it, needs `useAerodynamics` and a
+  non-zero `airDensity`, and pushes a heavy fabric less. **Acceleration** is m/s² added beside gravity:
+  mass-independent, works with aerodynamics off, never saturates.
+  Rule of thumb: Wind for anything that should look like air; Acceleration for attractors, lift, and
+  stylised pushes.
+- **`field`** — the spatial shape, sampled in the volume's own space so gusts and eddies stay put in the world
+  while the cloth moves through them. **Directional** blows along the volume's local **+Z**. **Radial**
+  pushes out from the centre (negative `strength` pulls in). **Vortex** swirls around local **+Y**, with
+  `inwardPull` and `axialLift` in the same unit as `strength`. **Turbulence** is curl noise of amplitude
+  `strength`, `noiseScale` eddies per metre (0.2 is sheet-sized rolls, 3 is ripples), drifting along +Z at
+  `scrollSpeed`.
+- `intensity` scales the whole volume; `strength` is the magnitude in the mode's unit (as wind, a flag lifts
+  around 3 m/s and snaps taut past 12). `gustAmplitude` and `gustFrequency` modulate any field, and the gust
+  travels along +Z.
+- **Shape**: `global` reaches every cloth at full weight; otherwise a `Box` (`size`) or `Sphere` (`radius`)
+  centred on the transform, with scale folded in. `blendDistance` fades the field in over that many metres
+  inward from the surface; 0 is a hard edge. Overlapping volumes **add**, each scaled by its falloff and
+  `weight` — there is no priority.
+- A cloth's `volumeMask` filters volumes by layer; a disabled volume, or one with `intensity` 0, is ignored.
+- The inspector prints the unit of `strength` for the current mode and, as wind, the peak dynamic pressure in
+  sea-level air.
 
 ### Presets and fabrics
 
@@ -220,6 +250,8 @@ shorter ones blown in from below. What makes it read as voile rather than as clo
 - **`Draft.Core.*` are three invisible sphere colliders** the falling cloth breaks over — they are what turns a
   straight drop into a curl. Nothing renders them.
 - **Pins sit outside the frame** so the fabric enters and leaves the picture with no visible anchor.
+- **Two global wind volumes blow upward**, a Directional one with a slow gust and a Turbulence one; the
+  voile hangs in them rather than carrying its own wind.
 - **`Studio Volume` holds `Voiles`**, the scene's own volume profile: fixed exposure at 0 EV, no
   tonemapping and no bloom, so the camera's white background stays white and the 0–1 material colours land as
   authored. Sky is off; the camera clears to white.
@@ -253,7 +285,9 @@ nor receives a shadow. `VelaClothArt_Fabric` is the lit exception (see above).
   metric value; use `selfCollisionStride = 2` to halve the cost; raise `maxContactsPerVertex` if a pile
   interpenetrates; `maxVelocity` below `2 × half-thickness × substeps × simulationRate` prevents tunnelling.
 - **Wind**: `liftCoefficient` makes it billow, `dragCoefficient` makes it stream; `areaDensity` is the dial
-  when the wind looks right but the cloth is too eager; `airDensity` is the blunt one.
+  when the wind looks right but the cloth is too eager; `airDensity` is the blunt one. A steady Directional
+  wind plus a Turbulence volume is the usual pair; turbulence is what makes a large drape flow rather than
+  vibrate.
 - Read the **Diagnostics** foldout while dragging any slider.
 - **Bright bands along fold creases are shadow leaks**: the two layers of a fold sit `2 × half-thickness`
   apart (~6 cm at 128 vertices over 5 m), so a directional shadow map whose texel plus bias exceeds that lights
@@ -275,6 +309,7 @@ project uses none of those, turn `writeMotionVectors` off and save 12 B/vertex.
   attachments, a URP material.
 - Generated rectangular grids only; no arbitrary meshes.
 - Up to 64 colliders per cloth. Colliders are analytic primitives; there is no mesh or SDF collision.
+- Up to 16 wind and 16 acceleration volumes per cloth.
 - Self-collision is point-based (no edge or triangle tests) and degrades into approximation when more than
   64 vertices share a hash cell.
 - Results are bit-reproducible on the same GPU and driver, not across vendors.

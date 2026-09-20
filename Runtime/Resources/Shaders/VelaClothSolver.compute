@@ -40,7 +40,7 @@ void KPredict(uint3 tid : SV_DispatchThreadID)
         return;
     }
 
-    float3 v = _Vel[id].xyz + _Gravity * _SubstepDt;
+    float3 v = _Vel[id].xyz + (_Gravity + ClothForceAt(p.xyz)) * _SubstepDt;
 
     float speed = length(v);
     if (speed > _MaxVelocity)
@@ -203,8 +203,8 @@ void KUpdateVelocity(uint3 tid : SV_DispatchThreadID)
 #ifdef CLOTH_AERODYNAMICS
     // Wind lands here rather than in KPredict, whose gather over neighbours would race that kernel's own
     // position write and cost the solver its bit-reproducibility; this pass only reads _Pos and _PosPrev.
-    // Wind is sampled once per vertex and shared by its six incident triangles — three curl-noise
-    // evaluations per triangle would be the heaviest ALU in the solver for a difference below a rest spacing.
+    // Wind is sampled once per vertex and shared by its six incident triangles — three volume walks per
+    // triangle would be the heaviest ALU in the solver for a difference below a rest spacing.
     v += ClothAeroForce(x, y, ClothWindAt(p.xyz)) * (p.w * _SubstepDt);
 #endif
 

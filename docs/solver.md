@@ -160,8 +160,8 @@ linear sweep over the step, and the constraints do the dragging.
   rigid; only position and rotation carry inertia.
 - **No teleport detection.** A jump of several metres leaves the sheet that far behind, and long-range
   attachment then hauls it back at `maxVelocity`. `Rebuild` is the teleport.
-- Wind is sampled at object-space positions, so a cloth carried through turbulence does not see the field
-  move past it; gusts and eddies travel with the sheet.
+- Force volumes are sampled in their own space, so a cloth carried through turbulence sees the field move
+  past it; gusts and eddies stay put in the world.
 
 ## Colliders
 
@@ -228,35 +228,47 @@ edge-edge tests, so the radius has to stand in for them.
   submits the dispatches; Unity exposes no per-marker GPU timer. What it states honestly is cell count,
   megabytes and dispatches per step, and the whole block vanishes when the feature is off.
 
-## Wind and aerodynamics
+## Force volumes, wind and aerodynamics
 
-Per vertex, once per substep:
+Every push but gravity comes from `VelaClothForceVolume`s. Per vertex, once per substep, each volume the
+cloth's `volumeMask` admits is sampled in **volume space** (`pv = clothToVolume · p`) and summed back in cloth
+space:
 
 ```
-w = direction · speed · (1 + gustAmplitude · sin(2π · gustFrequency · (t − dot(p, direction) / speed)))
-  + turbulence · curlNoise((p − advection) · turbulenceScale)
+field(pv) · (1 + gustAmplitude · sin(2π · gustFrequency · (t − pv.z / |strength|))) · falloff(pv) · weight
 ```
 
-- **`advection` is integrated per step (`+= direction · turbulenceSpeed · dt`), never computed as
-  `direction · turbulenceSpeed · t`.** `direction` is re-rotated into object space every frame, and after a
-  minute of play `turbulenceSpeed · t` is a lever arm of 100 m: a tenth of a degree of roll or pitch would then
-  re-sample the whole field tens of centimetres away and the sheet trembles whenever it turns about any axis
-  but the wind's. The gust phase keeps its `dot(p, direction)` because `p` is only metres long.
+with `field` one of Directional `(0, 0, strength)`, Radial `normalize(pv) · strength`, Vortex
+`tangent(+Y) · strength − radial · inwardPull + (0, axialLift, 0)`, or Turbulence
+`strength · curlNoise((pv − (0, 0, scroll)) · noiseScale)`, and
+`falloff = smoothstep(0, 1, insideDistance / blendDistance)` (1 for a global volume; blend 0 is a hard edge).
 
-- `speed` and `turbulence` reach the shader already multiplied by `intensity` (`EffectiveSpeed`,
-  `EffectiveTurbulence`), so one slider fades the whole field and 0 counts as still air for `HasEffect`.
-- The gust is phased along the wind direction and travels downwind at the wind's own speed. A global sinusoid
-  pulses the whole sheet in unison, which reads as a tremble; a travelling gust reads as weather with no extra
-  parameter.
+- **Volume space, not cloth space.** The old per-cloth wind was sampled at object-space positions, so a sheet
+  carried through turbulence took its eddies along. A volume's field is fixed in the world and the cloth moves
+  through it, which is what a spatial field is for. Volumes add with no priority: two overlapping winds sum,
+  exactly as two fans would.
+- **`scroll` is integrated per step by the registry (`+= scrollSpeed · intensity · dt`), never computed as
+  `scrollSpeed · t`.** Animating the speed would otherwise re-sample the whole field somewhere else at every
+  change; and it is per-solver state fed by the solver's `dt`, so a bake sees the same eddies as a live run.
+  Within a step the shader adds `scrollSpeed · _SubstepOffset` so each substep samples the field where it is.
+- **Wind mode vs Acceleration mode.** A wind volume is an air velocity fed to the per-triangle drag and lift
+  below; an acceleration volume is added to gravity in `KPredict`. The difference is what saturation means: a
+  vortex *wind* stops pushing once the sheet swirls at the air's speed, so it settles into the flow; a vortex
+  *acceleration* never stops, so the sheet keeps gaining speed until damping and `maxVelocity` hold it. Wind
+  needs the profile's aerodynamics and `airDensity > 0`; acceleration works on any profile and ignores mass.
+- The gust is phased along the volume's +Z and travels at the field's own speed. A global sinusoid pulses the
+  whole sheet in unison, which reads as a tremble; a travelling gust reads as weather with no extra parameter.
 - `curlNoise` is the analytic curl of three offset value-noise fields, so it is divergence-free — it swirls
   rather than pumping volume, which is what makes a large drape read as *flowing*. The value noise carries its
   analytic gradient, so a curl is three samples rather than the eighteen a finite difference needs.
-  `turbulence` scales the noise-space curl directly, so `turbulenceScale` resizes the eddies without changing
-  the swirl's strength.
+  `strength` scales the noise-space curl directly, so `noiseScale` resizes the eddies without changing the
+  swirl's strength. A steady Directional volume plus a Turbulence volume is the old single wind.
 - Wind is sampled once per **vertex** and shared by its six incident triangles. Sampling per triangle would
-  triple the curl-noise cost — the solver's heaviest ALU — for a difference below one rest spacing.
-- The whole field is gated by the `CLOTH_AERODYNAMICS` keyword, so the noise leaves the kernel's register
-  footprint entirely when aerodynamics is off.
+  triple the volume walk — the solver's heaviest ALU with turbulence in it — for a difference below one rest
+  spacing.
+- The wind walk is gated by the `CLOTH_AERODYNAMICS` keyword, so the noise leaves `KUpdateVelocity`'s
+  register footprint entirely when aerodynamics is off; the acceleration walk in `KPredict` is a loop over
+  `_ForceVolumeCount`, which is 0 when none reach the cloth.
 
 Per-triangle aerodynamics, gathered per vertex with `v_tri` the mean of the three vertex velocities:
 
@@ -273,4 +285,5 @@ scatter, no atomics and no extra dispatch; each triangle is evaluated up to thre
 and strictly better than an atomic scatter plus a second pass.
 
 At a million vertices the curl noise per vertex per substep is the heaviest ALU in the solver; the options are
-to evaluate wind once per step into a low-resolution buffer, or drop turbulence and rely on gusts.
+to evaluate the volumes once per step into a low-resolution buffer, or drop the Turbulence volume and rely on
+gusts.

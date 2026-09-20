@@ -10,7 +10,7 @@ namespace Vela
     [Serializable]
     public struct VelaClothForceSettings
     {
-        [Tooltip("World-space acceleration in m/s², rotated into object space alongside the wind. It is an acceleration, so a heavier fabric does not fall more slowly.")]
+        [Tooltip("World-space acceleration in m/s², rotated into object space. It is an acceleration, so a heavier fabric does not fall more slowly. Everything else pushing on the cloth is a Cloth Force Volume in the scene.")]
         public Vector3 gravity;
 
         public static VelaClothForceSettings Default => new VelaClothForceSettings
@@ -37,6 +37,7 @@ namespace Vela
         GraphicsBuffer _lraAnchor, _lraDist;
         VelaClothBounds _bounds;
         VelaClothColliderRegistry _colliders;
+        VelaClothVolumeRegistry _volumes;
         VelaClothSelfCollision _selfCollision;
         readonly float _smoothingScale;
         float _lastStepDt = 1f / 60f;
@@ -45,20 +46,17 @@ namespace Vela
 
         public VelaClothGrid Grid { get; }
         public VelaClothColliderRegistry Colliders => _colliders;
+        public VelaClothVolumeRegistry Volumes => _volumes;
         public VelaClothProfile Profile { get; set; }
         public VelaClothForceSettings Forces { get; set; } = VelaClothForceSettings.Default;
 
-        /// <summary>Wind direction must already be in cloth object space, the space the solver runs in.</summary>
-        public VelaClothWindSettings Wind { get; set; } = VelaClothWindSettings.Default;
+        /// <summary>kg/m³ of the air the wind volumes blow through. 0 makes every wind volume inert.</summary>
+        public float AirDensity { get; set; } = 1.225f;
 
         VelaClothProfile ActiveProfile => Profile != null ? Profile : VelaClothProfile.Fallback;
 
         /// <summary>Accumulated from the <c>dt</c> passed to <see cref="Step"/>, never from a clock — that is what makes a bake and a live run see the same gust.</summary>
         public float SimulationTime { get; set; }
-
-        // Integrated per step rather than derived as direction × time: the direction is re-rotated into
-        // object space every frame, and a lever arm that long would re-sample the whole field on any turn.
-        Vector3 _windAdvection;
 
         public GraphicsBuffer PositionBuffer => _pos;
         public GraphicsBuffer VelocityBuffer => _vel;
@@ -106,6 +104,7 @@ namespace Vela
                 _meshWriteCs.DisableKeyword("WRITE_MOTION_VECTORS");
 
             _colliders = new VelaClothColliderRegistry();
+            _volumes = new VelaClothVolumeRegistry();
 
             AllocateBuffers();
             PushGridConstants();
@@ -144,6 +143,8 @@ namespace Vela
             }
 
             _solverCs.SetBuffer(_kCollideAnalytic, ShaderIds.Colliders, _colliders.Buffer);
+            _solverCs.SetBuffer(_kPredict, ShaderIds.ForceVolumes, _volumes.ForceBuffer);
+            _solverCs.SetBuffer(_kUpdateVelocity, ShaderIds.WindVolumes, _volumes.WindBuffer);
 
             if (_lraAnchor != null)
             {
@@ -215,10 +216,10 @@ namespace Vela
         public void Reset()
         {
             SimulationTime = 0f;
-            _windAdvection = Vector3.zero;
             BindSolverBuffers();
             _solverCs.Dispatch(_kReset, Groups(Grid.VertexCount), 1, 1);
             _colliders?.ClearHistory();
+            _volumes?.ClearHistory();
             ResetMotionVectorHistory();
         }
 
@@ -256,6 +257,7 @@ namespace Vela
             // Once per step, not per frame: a driver running two steps in one frame must not replay the
             // same collider motion twice, and one running none must not lose it.
             _colliders?.Pack();
+            _volumes?.Pack();
 
             bool aero = AerodynamicsActive(profile);
             BindSolverBuffers();
@@ -267,7 +269,6 @@ namespace Vela
             bool self = UpdateSelfCollision(profile);
             bool lra = LongRangeActive(profile);
             bool shear = profile.useShear;
-            Vector3 windDrift = aero ? Wind.NormalizedDirection * Wind.turbulenceSpeed : Vector3.zero;
             int bendDirections = profile.EffectiveBendingDirections;
             float alphaBend = profile.BendingCompliance() / (h * h);
 
@@ -293,11 +294,8 @@ namespace Vela
                 // Per substep rather than per step, so a gust is sampled where it actually is — at 8 substeps
                 // a step-granular clock would hold the field still for 16 ms and then jump it. The wind is
                 // applied at the substep's end, in KUpdateVelocity, hence s + 1.
-                if (aero)
-                {
-                    _solverCs.SetFloat(ShaderIds.WindTime, SimulationTime + (s + 1) * h);
-                    _solverCs.SetVector(ShaderIds.WindAdvection, _windAdvection + windDrift * ((s + 1) * h));
-                }
+                _solverCs.SetFloat(ShaderIds.WindTime, SimulationTime + (s + 1) * h);
+                _solverCs.SetFloat(ShaderIds.SubstepOffset, (s + 1) * h);
 
                 // Sequential lerp by the remaining fraction walks the pins linearly to rest without a
                 // step-start copy of them.
@@ -368,7 +366,7 @@ namespace Vela
             }
 
             SimulationTime += dt;
-            _windAdvection += windDrift * dt;
+            _volumes?.Advance(dt);
         }
 
         /// <summary>Allocates or releases the hash to match the profile and pushes its constants.</summary>
@@ -398,9 +396,9 @@ namespace Vela
         public bool LongRangeActive(VelaClothProfile profile) =>
             profile.useLongRangeAttachment && LongRangeAnchorCount > 0;
 
-        /// <summary>Per-triangle aero is the only path wind has into the cloth, so still air or a fabric with no drag and no lift switches it off whole.</summary>
+        /// <summary>Per-triangle aero is the only path wind has into the cloth, so no air, no wind volume in reach, or a fabric with no drag and no lift switches it off whole. A wind volume of zero net field still yields still-air drag, which is the physically right answer.</summary>
         public bool AerodynamicsActive(VelaClothProfile profile) =>
-            profile.HasAerodynamicResponse && Wind.HasEffect;
+            profile.HasAerodynamicResponse && AirDensity > 0f && _volumes != null && _volumes.WindCount > 0;
 
         void PushStepConstants(float h, VelaClothProfile profile, bool aero)
         {
@@ -415,6 +413,8 @@ namespace Vela
             _solverCs.SetFloat(ShaderIds.VelocitySmooth,
                 Mathf.Clamp01(profile.localDamping * h * _smoothingScale));
             _solverCs.SetInt(ShaderIds.ColliderCount, _colliders != null ? _colliders.Count : 0);
+            _solverCs.SetInt(ShaderIds.WindVolumeCount, aero ? _volumes.WindCount : 0);
+            _solverCs.SetInt(ShaderIds.ForceVolumeCount, _volumes != null ? _volumes.ForceCount : 0);
             _solverCs.SetInt(ShaderIds.LraAnchorCount, LongRangeAnchorCount);
             _solverCs.SetFloat(ShaderIds.LraSlack, profile.LraSlack);
 
@@ -444,18 +444,10 @@ namespace Vela
             if (!aero)
                 return;
 
-            VelaClothWindSettings wind = Wind;
-
-            _solverCs.SetVector(ShaderIds.WindDir, wind.NormalizedDirection);
-            _solverCs.SetFloat(ShaderIds.WindSpeed, wind.EffectiveSpeed);
-            _solverCs.SetFloat(ShaderIds.GustAmplitude, wind.gustAmplitude);
-            _solverCs.SetFloat(ShaderIds.GustFrequency, wind.gustFrequency);
-            _solverCs.SetFloat(ShaderIds.Turbulence, wind.EffectiveTurbulence);
-            _solverCs.SetFloat(ShaderIds.TurbulenceScale, wind.turbulenceScale);
             // The dynamic-pressure half and the air density fold into the coefficients here rather than
             // costing two multiplies per triangle per substep.
-            _solverCs.SetFloat(ShaderIds.DragFactor, 0.5f * wind.airDensity * profile.dragCoefficient);
-            _solverCs.SetFloat(ShaderIds.LiftFactor, 0.5f * wind.airDensity * profile.liftCoefficient);
+            _solverCs.SetFloat(ShaderIds.DragFactor, 0.5f * AirDensity * profile.dragCoefficient);
+            _solverCs.SetFloat(ShaderIds.LiftFactor, 0.5f * AirDensity * profile.liftCoefficient);
         }
 
         /// <summary>Recomputes normals and tangents from grid neighbours straight into the mesh's own vertex buffer.</summary>
@@ -491,6 +483,9 @@ namespace Vela
 
             _colliders?.Dispose();
             _colliders = null;
+
+            _volumes?.Dispose();
+            _volumes = null;
 
             _selfCollision?.Dispose();
             _selfCollision = null;
