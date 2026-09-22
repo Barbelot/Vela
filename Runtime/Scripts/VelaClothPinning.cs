@@ -3,13 +3,15 @@ using UnityEngine;
 
 namespace Vela
 {
+    // Explicit values: pinMode serialises as an int, so a later insertion must not renumber what scenes hold.
     public enum VelaClothPinMode
     {
-        None,
-        TopEdge,
-        TopCorners,
-        LeftEdge,
-        Custom
+        None = 0,
+        TopEdge = 1,
+        TopCorners = 2,
+        LeftEdge = 3,
+        Corners = 4,
+        Custom = 5
     }
 
     /// <summary>Turns a pin mode into the per-vertex inverse mass that rides in <c>_Pos.w</c>.</summary>

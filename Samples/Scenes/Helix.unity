@@ -682,7 +682,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!64 &205707635
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -774,8 +774,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 29.51, y: 29.51, z: 29.51}
   m_ConstrainProportionsScale: 1
-  m_Children:
-  - {fileID: 1367292644}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!1 &872813844
@@ -803,13 +802,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 872813844}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1611898321}
-  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &872813846
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -831,8 +830,8 @@ MonoBehaviour:
   mode: 0
   field: 0
   intensity: 1
-  strength: 0
-  gustAmplitude: 0.386
+  strength: 1.2
+  gustAmplitude: 0.25
   gustFrequency: 0.14
   inwardPull: 0
   axialLift: 0
@@ -856,7 +855,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1074298210
 Transform:
   m_ObjectHideFlags: 0
@@ -866,7 +865,7 @@ Transform:
   m_GameObject: {fileID: 1074298209}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 3.71, z: 0}
+  m_LocalPosition: {x: 0, y: 2.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -886,18 +885,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Vela::Vela.VelaClothForceVolume
   global: 0
   shape: 0
-  size: {x: 5, y: 13.3, z: 5}
+  size: {x: 4, y: 6, z: 4}
   radius: 1
-  blendDistance: 0.5
+  blendDistance: 1.5
   weight: 1
   mode: 0
   field: 2
   intensity: 1
-  strength: 2.36
+  strength: 2.5
   gustAmplitude: 0
   gustFrequency: 0.15
-  inwardPull: 1.12
-  axialLift: 0
+  inwardPull: 0.8
+  axialLift: 2.5
   noiseScale: 0.5
   scrollSpeed: 2
   alwaysDrawGizmo: 1
@@ -932,7 +931,7 @@ Transform:
   m_GameObject: {fileID: 1186556037}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -2.64, z: 0}
+  m_LocalPosition: {x: 0.4, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -963,8 +962,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f38b5b46895ee844aee940324210688, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vela::Vela.VelaClothSimulation
-  sizeMeters: {x: 3, y: 10}
-  resolution: 320
+  sizeMeters: {x: 0.6, y: 5}
+  resolution: 200
   pivot: {x: 0.5, y: 1}
   qualityProfile: {fileID: 11400000, guid: 2d68f4a1c5b74e83b91ad70e6c25f3b9, type: 2}
   simulationRate: 60
@@ -1064,58 +1063,6 @@ MonoBehaviour:
   _rotationFractalLevel: 1
   _positionTimeOffset: 0
   _rotationTimeOffset: 0
---- !u!1 &1367292643
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1367292644}
-  - component: {fileID: 1367292645}
-  m_Layer: 0
-  m_Name: Collider
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1367292644
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1367292643}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 1
-  m_Children: []
-  m_Father: {fileID: 205707638}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1367292645
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1367292643}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 19ae60775f9c58e49b72a3bf01d218f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vela::Vela.VelaClothCollider
-  type: 3
-  radius: 0.5
-  height: 2
-  size: {x: 1, y: 1, z: 1}
-  friction: 0.3
-  thickness: 0.01
-  alwaysDrawGizmo: 1
-  gizmoColor: {r: 0.35, g: 0.85, b: 1, a: 0.9}
 --- !u!1 &1380959871
 GameObject:
   m_ObjectHideFlags: 0
@@ -1170,7 +1117,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1504699992
 Transform:
   m_ObjectHideFlags: 0
@@ -1180,7 +1127,7 @@ Transform:
   m_GameObject: {fileID: 1504699991}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.5038542, z: -0, w: 0.8637887}
-  m_LocalPosition: {x: -2.44, y: -2.64, z: 2.09}
+  m_LocalPosition: {x: -2.44, y: 0, z: 2.09}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1237,7 +1184,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f38b5b46895ee844aee940324210688, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vela::Vela.VelaClothSimulation
-  sizeMeters: {x: 3, y: 10}
+  sizeMeters: {x: 3, y: 8}
   resolution: 320
   pivot: {x: 0.5, y: 1}
   qualityProfile: {fileID: 11400000, guid: 2d68f4a1c5b74e83b91ad70e6c25f3b9, type: 2}
@@ -1906,7 +1853,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2048364334
 Transform:
   m_ObjectHideFlags: 0
@@ -1916,7 +1863,7 @@ Transform:
   m_GameObject: {fileID: 2048364333}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.5038542, z: -0, w: 0.8637887}
-  m_LocalPosition: {x: 1.92, y: -2.64, z: -1.63}
+  m_LocalPosition: {x: 1.92, y: 0, z: -1.63}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1973,7 +1920,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f38b5b46895ee844aee940324210688, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vela::Vela.VelaClothSimulation
-  sizeMeters: {x: 3, y: 10}
+  sizeMeters: {x: 3, y: 8}
   resolution: 320
   pivot: {x: 0.5, y: 1}
   qualityProfile: {fileID: 11400000, guid: 2d68f4a1c5b74e83b91ad70e6c25f3b9, type: 2}
