@@ -56,7 +56,8 @@ The one component a drape needs. Its inspector is grouped into foldouts; every f
   (default 60). Force volumes act during them too.
 
 **Pinning**
-- `pinMode` — `None`, `TopEdge`, `TopCorners` or `LeftEdge`. `Custom` is reserved.
+- `pinMode` — `None`, `TopEdge`, `TopCorners`, `LeftEdge` or `Corners` (all four, for a sheet hung flat like
+  a canopy). `Custom` is reserved.
 
 **Environment**
 - `forces.gravity` — world-space acceleration in m/s². Every other push comes from *Cloth Force Volumes* in
@@ -113,9 +114,9 @@ removes a faint axis-aligned preference in folds for six more dispatches per sub
 differences between neighbours, in 1/s — the weight dial).
 
 **Long-range attachment** — `useLongRangeAttachment` caps each vertex's distance from its pins at the rest
-distance, the cheapest way to stop a pinned drape stretching; `lraAnchorCount` (1 for a top-edge hang, 2 for
-two corners) and `lraStretchAllowance` (0–10 % past the rest distance, live). Disables itself with nothing
-pinned.
+distance, the cheapest way to stop a pinned drape stretching; `lraAnchorCount` (how many pins hold each
+vertex on an edge hang — a sheet pinned at up to four points uses all of them regardless) and
+`lraStretchAllowance` (0–10 % past the rest distance, live). Disables itself with nothing pinned.
 
 **Self-collision** — `useSelfCollision` stops the sheet passing through itself and is the most expensive
 feature; `selfCollisionThicknessMode` picks between a half-thickness as a fraction of rest spacing

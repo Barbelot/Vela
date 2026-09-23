@@ -112,16 +112,28 @@ count; the inspector reports each as a time constant.
 
 A pinned drape stretches because constraint information crawls one row per colour pass — at 8 substeps a
 128-row drape takes ~16 frames to learn its top is pinned, and that lag *is* the spring. Long-range attachment
-forbids each vertex from travelling further from its anchor than its **rest geodesic**, in one uncoloured
+forbids each vertex from travelling further from its anchor than its **rest distance**, in one uncoloured
 dispatch per substep. Anchors are kinematic, so the whole correction lands on the free vertex and no two
 threads write the same element.
 
-- Tables come from one labelled multi-source Dijkstra over the 8-neighbour grid, weighted by rest lengths
+- Anchors come from one labelled multi-source Dijkstra over the 8-neighbour grid, weighted by rest lengths
   (`restDx`, `restDy`, their hypotenuse — not hops, since diagonals differ), keeping up to K labels with
   *distinct* anchors per vertex rather than K separate runs. Seeds are closed on insertion: a path through a
-  pinned vertex is always dominated by one starting there. The 8-neighbour graph overestimates the true
-  geodesic by 2–5 %, the safe direction, which `lraStretchAllowance` absorbs; fast marching is not worth it.
-- **The tables store the rest geodesic, not the allowed distance.** `_LraSlack` multiplies on the GPU, so
+  pinned vertex is always dominated by one starting there.
+- **The search ranks the anchors; it does not measure the distance.** The table stores the straight-line rest
+  distance to the anchor it picked, which on a flat convex rest rectangle *is* the geodesic. Storing the path
+  length instead prints the graph metric's anisotropy on the cloth — exact along the axes and the 45°
+  diagonals, 8 % long at 22.5°, several times the authored slack — as taut rays from every pin. `Corners` is
+  where it shows, because every vertex then sits on a clean diagonal from a corner.
+- **A sheet held by at most `MaxAnchorCount` pins takes all of them, whatever `lraAnchorCount` says.** Capping
+  a vertex against its nearest pin alone leaves a crease wherever that nearest pin changes: the cap is
+  continuous across the boundary but the direction it pulls is not, so the feasible set has a kink there —
+  `Corners` folds along the two midlines, `TopCorners` down the centre. Raising the dial to 2 only moves a
+  four-corner crease onto the diagonals, where 2nd and 3rd nearest swap. The dial bounds cost on a pinned
+  *edge*, where the switch is between pins one cell apart and the kink is sub-cell; with every pin in reach
+  there is nothing to bound. `VelaClothSimulation`'s rebuild check compares the requested count, so the raise
+  never loops; the component inspector prints the count actually built.
+- **The table stores the rest distance, not the allowed distance.** `_LraSlack` multiplies on the GPU, so
   `lraStretchAllowance` is live while only `lraAnchorCount` forces a rebuild.
 - `VelaClothLongRangeAttachment.Build` returns `null` when nothing is pinned, and that null is what auto-disables
   the constraint.

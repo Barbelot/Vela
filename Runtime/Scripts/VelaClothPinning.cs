@@ -25,6 +25,7 @@ namespace Vela
                 case VelaClothPinMode.TopEdge: return y == top;
                 case VelaClothPinMode.TopCorners: return y == top && (x == 0 || x == grid.width - 1);
                 case VelaClothPinMode.LeftEdge: return x == 0;
+                case VelaClothPinMode.Corners: return (y == top || y == 0) && (x == 0 || x == grid.width - 1);
                 default: return false;
             }
         }

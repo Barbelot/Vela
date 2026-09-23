@@ -162,6 +162,34 @@ namespace Vela.Tests
         }
 
         [Test]
+        public void CornersPinsEveryCornerAndNothingElse()
+        {
+            VelaClothGrid grid = Make(new Vector2Int(8, 6));
+            var rest = new NativeArray<Vector4>(grid.VertexCount, Allocator.Temp);
+
+            try
+            {
+                VelaClothPinning.FillRestState(grid, VelaClothPinMode.Corners, 0.2f, rest);
+
+                for (int y = 0; y < grid.height; y++)
+                for (int x = 0; x < grid.width; x++)
+                {
+                    bool corner = (x == 0 || x == grid.width - 1) && (y == 0 || y == grid.height - 1);
+                    float w = rest[grid.Id(x, y)].w;
+
+                    if (corner)
+                        Assert.AreEqual(0f, w, $"vertex ({x},{y})");
+                    else
+                        Assert.Greater(w, 0f, $"vertex ({x},{y})");
+                }
+            }
+            finally
+            {
+                rest.Dispose();
+            }
+        }
+
+        [Test]
         public void LongRangeReturnsNullWithoutPins()
         {
             VelaClothGrid grid = Make(new Vector2Int(5, 5));
@@ -174,8 +202,10 @@ namespace Vela.Tests
             VelaClothGrid grid = Make(new Vector2Int(5, 5));
             VelaClothLongRangeAttachment lra = BuildLra(grid, VelaClothPinMode.TopEdge, 1);
 
-            // A full pinned row makes every geodesic a straight climb: a diagonal step costs √2 spacings
-            // to cross the same one row, so it never wins.
+            // A pinned row is more pins than a vertex can hold, so the dial stands and each vertex keeps the
+            // one pin straight above it: a diagonal step costs √2 spacings to cross the same one row.
+            Assert.AreEqual(1, lra.AnchorCount);
+
             for (int y = 0; y < grid.height; y++)
             for (int x = 0; x < grid.width; x++)
             {
@@ -187,20 +217,55 @@ namespace Vela.Tests
         }
 
         [Test]
-        public void LongRangeDistancesToTwoCornersTakeTheNearer()
+        public void LongRangeHoldsEveryVertexToBothTopCorners()
         {
             VelaClothGrid grid = Make(new Vector2Int(5, 5));
             VelaClothLongRangeAttachment lra = BuildLra(grid, VelaClothPinMode.TopCorners, 1);
-            float s = grid.RestDx;
+
+            AssertHeldToEveryPin(grid, lra, VelaClothPinMode.TopCorners, 2);
+        }
+
+        [Test]
+        public void LongRangeHoldsEveryVertexToEveryCorner()
+        {
+            VelaClothGrid grid = Make(new Vector2Int(5, 5));
+            VelaClothLongRangeAttachment lra = BuildLra(grid, VelaClothPinMode.Corners, 1);
+
+            AssertHeldToEveryPin(grid, lra, VelaClothPinMode.Corners, 4);
+        }
+
+        /// <summary>A vertex capped against only its nearest pin creases the sheet where that nearest one changes, so few-pin modes must ignore the dial and hold every pin at its exact rest distance.</summary>
+        static void AssertHeldToEveryPin(VelaClothGrid grid, VelaClothLongRangeAttachment lra,
+            VelaClothPinMode mode, int expectedPins)
+        {
+            Assert.AreEqual(expectedPins, lra.AnchorCount);
+
+            var pins = new List<int>();
+            for (int y = 0; y < grid.height; y++)
+            for (int x = 0; x < grid.width; x++)
+                if (VelaClothPinning.IsPinned(grid, mode, x, y))
+                    pins.Add(grid.Id(x, y));
+
+            Assert.AreEqual(expectedPins, pins.Count, "pin mode changed");
 
             for (int y = 0; y < grid.height; y++)
             for (int x = 0; x < grid.width; x++)
             {
-                float expected = Mathf.Min(
-                    CornerDistance(x, grid.height - 1 - y, 0, s),
-                    CornerDistance(x, grid.height - 1 - y, grid.width - 1, s));
+                int id = grid.Id(x, y);
+                if (VelaClothPinning.IsPinned(grid, mode, x, y))
+                    continue;
 
-                Assert.AreEqual(expected, lra.Distances[grid.Id(x, y)], 1e-5f, $"vertex ({x},{y})");
+                for (int p = 0; p < pins.Count; p++)
+                {
+                    int slot = System.Array.IndexOf(lra.Anchors, (uint)pins[p], id * expectedPins,
+                        expectedPins);
+                    Assert.GreaterOrEqual(slot, 0, $"vertex ({x},{y}) misses pin {pins[p]}");
+
+                    float expected = Vector3.Distance(grid.RestPosition(x, y),
+                        grid.RestPosition(pins[p] % grid.width, pins[p] / grid.width));
+                    Assert.AreEqual(expected, lra.Distances[slot], 1e-5f,
+                        $"vertex ({x},{y}) to pin {pins[p]}");
+                }
             }
         }
 
@@ -221,9 +286,10 @@ namespace Vela.Tests
                 if ((dx == 0 && dy == 0) || nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height)
                     continue;
 
+                int k = lra.AnchorCount;
                 float w = dx != 0 && dy != 0 ? diag : dx != 0 ? grid.RestDx : grid.RestDy;
-                Assert.LessOrEqual(lra.Distances[grid.Id(x, y)],
-                    lra.Distances[grid.Id(nx, ny)] + w + 1e-5f, $"({x},{y}) via ({nx},{ny})");
+                Assert.LessOrEqual(lra.Distances[grid.Id(x, y) * k],
+                    lra.Distances[grid.Id(nx, ny) * k] + w + 1e-5f, $"({x},{y}) via ({nx},{ny})");
             }
         }
 
@@ -243,13 +309,6 @@ namespace Vela.Tests
                 Assert.AreNotEqual(lra.Anchors[slot], lra.Anchors[slot + 1], $"vertex ({x},{y})");
                 Assert.LessOrEqual(lra.Distances[slot], lra.Distances[slot + 1] + 1e-5f, $"vertex ({x},{y})");
             }
-        }
-
-        static float CornerDistance(int x, int rowsDown, int cornerX, float spacing)
-        {
-            int a = Mathf.Abs(x - cornerX);
-            int b = rowsDown;
-            return Mathf.Min(a, b) * Mathf.Sqrt(2f) * spacing + Mathf.Abs(a - b) * spacing;
         }
 
         static VelaClothLongRangeAttachment BuildLra(VelaClothGrid grid, VelaClothPinMode mode, int anchorCount)

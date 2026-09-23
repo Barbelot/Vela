@@ -3,13 +3,13 @@ using UnityEngine;
 
 namespace Vela
 {
-    /// <summary>Geodesic distance from every vertex to its nearest pins, built on the CPU behind a dirty flag.</summary>
+    /// <summary>Rest distance from every vertex to its nearest pins, built on the CPU behind a dirty flag.</summary>
     public sealed class VelaClothLongRangeAttachment
     {
         /// <summary>Fills a slot a vertex could not reach — fewer distinct pins exist than the anchor count asks for.</summary>
         public const uint NoAnchor = 0xFFFFFFFFu;
 
-        public const int MaxAnchorCount = 2;
+        public const int MaxAnchorCount = 4;
 
         struct Entry
         {
@@ -33,13 +33,29 @@ namespace Vela
             _distances = distances;
         }
 
-        /// <summary>Multi-source Dijkstra over the 8-neighbour grid, weighted by rest lengths. Returns null when nothing is pinned, which is what auto-disables the constraint.</summary>
+        /// <summary>Multi-source Dijkstra over the 8-neighbour grid, weighted by rest lengths, selecting each vertex's nearest distinct pins. Returns null when nothing is pinned, which is what auto-disables the constraint.</summary>
         public static VelaClothLongRangeAttachment Build(in VelaClothGrid grid, NativeArray<Vector4> rest, int anchorCount)
         {
-            int k = Mathf.Clamp(anchorCount, 1, MaxAnchorCount);
             int n = grid.VertexCount;
             if (rest.Length != n)
                 return null;
+
+            int pins = 0;
+            for (int i = 0; i < n; i++)
+                if (rest[i].w <= 0f)
+                    pins++;
+
+            if (pins == 0)
+                return null;
+
+            int k = Mathf.Clamp(anchorCount, 1, MaxAnchorCount);
+
+            // Holding a vertex to its nearest pin alone creases the sheet wherever the nearest one changes:
+            // the cap is continuous across that boundary but its pull direction is not, so `Corners` folds
+            // along the two midlines and `TopCorners` along the centre. The dial exists to bound cost on a
+            // pinned edge; with every pin in reach there is no cost to bound, so take them all.
+            if (pins <= MaxAnchorCount)
+                k = Mathf.Max(k, pins);
 
             var anchors = new uint[n * k];
             var distances = new float[n * k];
@@ -55,7 +71,6 @@ namespace Vela
             var offsetY = new[] { 0, 0, -1, 1, -1, -1, 1, 1 };
 
             var heap = new Heap(n * k + 1);
-            int seeds = 0;
 
             for (int y = 0; y < grid.height; y++)
             for (int x = 0; x < grid.width; x++)
@@ -64,7 +79,6 @@ namespace Vela
                 if (rest[id].w > 0f)
                     continue;
 
-                seeds++;
                 anchors[id * k] = (uint)id;
                 distances[id * k] = 0f;
                 // A path through a pinned vertex is always dominated by one starting there, so seeds are
@@ -84,9 +98,6 @@ namespace Vela
                 }
             }
 
-            if (seeds == 0)
-                return null;
-
             while (heap.TryPop(out Entry e))
             {
                 int slot = filled[e.node];
@@ -100,7 +111,11 @@ namespace Vela
                     continue;
 
                 anchors[e.node * k + slot] = (uint)e.anchor;
-                distances[e.node * k + slot] = e.distance;
+                // The path length only ranks the anchors. Storing it as the cap would print the graph
+                // metric's anisotropy on the cloth — it is exact along the axes and the 45° diagonals and
+                // 8% long at 22.5°, four times the authored slack. The rest sheet is a flat convex
+                // rectangle, so the straight line is the geodesic.
+                distances[e.node * k + slot] = Vector3.Distance(rest[e.node], rest[e.anchor]);
                 filled[e.node] = slot + 1;
 
                 int x = e.node % grid.width;

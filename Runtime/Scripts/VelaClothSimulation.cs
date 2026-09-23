@@ -129,7 +129,7 @@ namespace Vela
             // Editing the profile asset never reaches this component's OnValidate, and both of these are baked
             // into CPU state rather than pushed per step. Density rides in every vertex's invMass, so it needs
             // the full rebuild and its pre-roll — deferred by a frame rather than torn down mid-Update; the
-            // anchor count only invalidates the geodesic tables.
+            // anchor count only invalidates the long-range tables.
             if (!Mathf.Approximately(Profile.areaDensity, _builtAreaDensity))
                 _dirty = true;
             else if (Profile.lraAnchorCount != _builtAnchorCount)

@@ -28,7 +28,7 @@ compute-capable device.
   **sag distance** of the bottom edge: same stiffness, 16× the substeps, the edge must hang to the same length.
   The pair carries a deliberately soft `structuralStiffness = 0.33`, because at `1` the compliance is `0`, the
   `α̃ = α / h²` division is `0 / h²` either way and the test is blind. Both turn `useLongRangeAttachment`
-  off, and every force volume in the scene must be disabled: long-range attachment caps sag at the geodesic,
+  off, and every force volume in the scene must be disabled: long-range attachment caps sag at the rest distance,
   and wind moves the sheet the reading is taken from — with either on, every reading collapses or wanders.
 - **Force volumes** — a box Vortex volume overlapping half a sheet, once in Wind mode and once in
   Acceleration mode: only the vertices inside swirl, the blend edge is soft, and `global` reaches the whole

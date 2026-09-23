@@ -65,11 +65,11 @@ namespace Vela
         [Tooltip("Removes velocity differences between neighbouring vertices, in 1/s — the weight dial, killing ripple without touching bulk motion. 30 reads as silk, 100 as denim, 160 as leather; the inspector says when it saturates.")]
         [Min(0f)] public float localDamping = 5f;
 
-        [Tooltip("Caps a vertex's distance from its pins at its rest geodesic, in one dispatch per substep — cheaper inextensibility than more substeps. Disables itself when nothing is pinned.")]
+        [Tooltip("Caps a vertex's distance from its pins at its rest distance, in one dispatch per substep — cheaper inextensibility than more substeps. Disables itself when nothing is pinned.")]
         public bool useLongRangeAttachment = true;
-        [Tooltip("Pins each vertex is held by. 1 suits a top-edge hang, 2 a two-corner hang. Changing it forces a Dijkstra rebuild, about a second at a million vertices.")]
-        [Range(1, 2)] public int lraAnchorCount = 1;
-        [Tooltip("How far past its geodesic distance from the nearest pin a vertex may travel.")]
+        [Tooltip("Pins each vertex is held by, for a pinned edge — a sheet pinned at up to four points uses all of them whatever this says, or it creases where the nearest pin changes. Changing it forces a Dijkstra rebuild, about a second at a million vertices.")]
+        [Range(1, 4)] public int lraAnchorCount = 1;
+        [Tooltip("How far past its rest distance from a pin a vertex may travel.")]
         [Range(0f, 0.1f)] public float lraStretchAllowance = 0.02f;
 
         [Tooltip("Stops the sheet passing through itself, for nine dispatches per solved substep and its own buffers.")]
