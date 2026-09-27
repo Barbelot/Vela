@@ -215,8 +215,6 @@ buffers; the materials in `Samples/Materials/` expose every dial.
 | `VelaClothArt_Heraldic` | displacement, strain, facing | A different print on each face, flaking away where the sheet has moved furthest from rest or is stretched |
 | `VelaClothArt_Voile` | facing, curvature | Sheer voile whose opacity follows the view ray's path through the cloth, so layers stack and the silhouette goes solid; optional pleats (used in *Voiles* below, not in this scene) |
 | `VelaClothArt_FabricVoile` | facing, curvature | The voile again on `VelaClothArt_Fabric.shadergraph`, an HDRP **Fabric** (Silk) Shader Graph: the same sheer alpha, hem and weave, but lit by every light with shadows, GI, transmission and motion vectors |
-| `VelaClothArt_FabricNocturne` | facing, curvature, base map | The same graph dyed night blue over `VelaArt_Paper`, mostly opaque: transmission carries the mottling through the sheet rather than sheerness. Used in *Voûte* below |
-| `VelaClothArt_FabricEncre` | facing, curvature, base map | The graph dyed gold over `VelaArt_Paper` at high pigment opacity, so the thin washes fade and every self-overlap doubles the colour. Used in *Encrier* below |
 
 ### Fabric Shader Graph
 
@@ -276,29 +274,6 @@ The hand-written ones are stylized forward passes, not HDRP Lit: they cast shado
 no GI, and stay out of the depth prepass, so SSAO, SSR, decals and per-object motion vectors do not apply to
 them. Colour is authored in 0–1 and ignores exposure. `VelaClothArt_Voile` is transparent, so it neither casts
 nor receives a shadow. `VelaClothArt_Fabric` is the lit exception (see above).
-
-### Voûte and Encrier
-
-Two scenes dress the Fabric Shader Graph with `VelaArt_Paper` tinted by `_BaseColor`, each showing one thing
-the hand-written shaders cannot reach. Both share `Samples/Scenes/Voute.asset`: fixed exposure at 0 EV, no
-tonemapping, no bloom, and a near-black gradient sky. The sky is **explicitly dark rather than off** — with no
-sky HDRP falls back to its own bright default for ambient and reflections, which washes the cloth out whatever
-the scene lights do. For your own art, a pigment-on-black painting on `_BaseMap` works as is: its blacks sink
-into the backdrop through `_PigmentAlpha`.
-
-`Samples/Scenes/Voute.unity` hangs a 7 m sheet flat overhead on `pinMode Corners`, read from below by a camera
-on the floor. A single key light above it drives **transmission**: the dyed mottling arrives through the cloth
-rather than off it, which is the one thing a stylized forward shader cannot do. A global turbulence volume
-keeps the catenary breathing.
-
-`Samples/Scenes/Encrier.unity` blooms three long ribbons in a radial/vortex volume pair. `_PigmentAlpha` is
-high, so the dark patches of the paper go sheer and **every fold over itself doubles the colour** — the alpha stacking is the
-subject. If the overlaps do not darken, `_PigmentAlpha` is too low or `useSelfCollision` is off in the
-fabric profile.
-
-Both scenes compose on load, before Play; that is what `preRollSteps` is for. Their lights are directional
-and authored in **lux** — a directional light whose HDRP data is added after its type defaults to candela,
-which blows the exposure out.
 
 ## Tuning
 
