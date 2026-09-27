@@ -9,7 +9,7 @@ Every constraint colour is its own dispatch: 4 structural, 4 shear, 3 phases × 
 - A second solve path, keyword- or profile-gated, that keeps the existing colour-pass kernels intact as the correctness reference.
 - `KSolveTile`: load a 16×16 tile plus a 1-vertex apron into `groupshared`, run all structural / shear / bending colour passes for the tile interior with `GroupMemoryBarrierWithGroupSync()` between colours, write back. A second dispatch offset by 8 in both axes fixes the seams. Collapses ~14 dispatches per substep to 2 and turns stride-2 global reads into LDS traffic.
 - A profile toggle (or automatic selection below a vertex threshold) and a Diagnostics line reporting which path is active and the dispatch count.
-- Record the design in `docs/solver.md`, update `README.md` if a field is exposed, then delete this file.
+- Record the design in `docs/solver.md`, update `docs/components.md` if a field is exposed, then delete this file.
 
 ## Design
 

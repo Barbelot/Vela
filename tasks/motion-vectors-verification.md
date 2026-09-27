@@ -7,7 +7,7 @@
 ## Scope
 
 - Verify in `Samples/Scenes/ClothSimulation.unity`; fix whichever link is wrong.
-- If nothing is wrong, update `README.md` (Motion vectors section) to say it is verified, then delete this file.
+- If nothing is wrong, update `docs/components.md` (Motion vectors) to say it is verified, then delete this file.
 
 ## Verification
 

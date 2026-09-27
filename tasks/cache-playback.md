@@ -11,7 +11,7 @@ Requires `docs/cache-format.md` and `Runtime/Scripts/Cache/VelaClothCacheWriter.
 - `Runtime/Scripts/Drivers/VelaClothCacheDriver.cs` — no solving; `frameCursor += dt · cacheFrameRate`, signed so scrubbing and reverse work; then `KDequantLerp` → `KWriteVertexBuffer`.
 - `VelaClothSimulation` gains `mode` (`Simulate | PlayCache`), `cache` (`VelaClothCacheAsset`), `playbackSpeed`, `loop`, `loopBlendFrames` (blends the last K frames when the bake is not loop-matched). Add them to a `VelaClothInspectorGroup` — `VelaClothInspectorCoverageTests` fails otherwise.
 - `Editor/VelaClothCacheInspector.cs` — header display and a scrub slider previewing frames in edit mode.
-- Record the shipped design in `docs/`, update `README.md` (Components, Limitations), then delete this file.
+- Record the shipped design in `docs/`, update `README.md` (Limitations) and `docs/components.md`, then delete this file.
 
 ## Design
 

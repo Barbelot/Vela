@@ -8,7 +8,7 @@
 
 - `Rendering/URP/VelaClothLit_URP.shader` + `.mat`: a hand-written URP Lit variant whose `MotionVectors` pass is URP's own object motion-vector pass with the previous position replaced by `positionOS − TEXCOORD4`. Everything else about URP support is a material swap.
 - Only if C# becomes necessary: a `Vela.URP` asmdef with `versionDefines` on `com.unity.render-pipelines.universal` → `URP_ENABLED` plus a matching `defineConstraints`, mirroring `Assets/Plugins/UnityBarbelotUtilities/PostProcess/HybridKuwahara/Runtime/HybridKuwahara.asmdef`. The core asmdef never gains a pipeline reference.
-- Update `README.md` (Requirements, Installation, Limitations) and `docs/rendering.md`, then delete this file.
+- Update `README.md` (Requirements, Limitations), `docs/components.md` and `docs/rendering.md`, then delete this file.
 
 ## Design
 

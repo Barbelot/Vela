@@ -12,7 +12,7 @@ The solver runs realtime only: `VelaClothSimulation` owns a `VelaClothRealtimeDr
 - `KQuantize` in a `VelaClothCache.compute` — quantize on the GPU after `KBoundsReduce`, so 6 B/vertex cross PCIe instead of 16. That 2.6× reduction is the real bottleneck of a 1M-vertex bake.
 - `Editor/VelaClothBakeSession.cs` — pumps `EditorApplication.update` with a 30 ms time budget per tick calling `Step(1 / bakeFrameRate)`, keeping the editor and a cancelable progress bar responsive. Readbacks pipeline through a 4-deep ring (complete frame `f−4` before issuing `f`). Handles `AssemblyReloadEvents.beforeAssemblyReload` (cancel, flush, dispose) and refuses to start when entering play mode.
 - `Editor/VelaClothBakeWindow.cs` — duration, fps, pre-roll, output path; shows predicted MB/s and total size **before** the bake starts; progress, ETA, cancel.
-- Record the shipped format in `docs/cache-format.md`, update `README.md` (Limitations, a Baking section), then delete this file.
+- Record the shipped format in `docs/cache-format.md`, update `README.md` (Limitations) and `docs/components.md` (a Baking section), then delete this file.
 
 ## Design
 

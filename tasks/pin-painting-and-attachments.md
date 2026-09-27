@@ -10,7 +10,7 @@ Pinning is declarative only: `VelaClothPinMode` on the component, decoded by `Ve
 - `VelaClothPinMode.Custom` reads the mask; `VelaClothSimulation` gains a `pinMask` field in the Pinning inspector group.
 - `Editor/VelaClothPinPaintTool.cs` — an `EditorTool` scene-view brush that raycasts the cloth mesh, toggles bits in the asset, and draws painted vertices. Undo-aware.
 - `Transform[] attachments` on the component — each binds its nearest vertex (by rest position at bind time) and drives it kinematically: `_AttachIndex` / `_AttachTarget` buffers, and `KPredict` snaps those vertices to the target (in cloth object space) with zero inverse mass. Targets are pushed every step from the transforms, so a rigged or animated pin follows.
-- Record the design in `docs/`, update `README.md` (Components → Pinning), then delete this file.
+- Record the design in `docs/`, update `docs/components.md` (Pinning), then delete this file.
 
 ## Design
 
