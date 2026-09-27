@@ -18,7 +18,7 @@ The solver runs realtime only: `VelaClothSimulation` owns a `VelaClothRealtimeDr
 
 Not yet current state; moves to `docs/cache-format.md` when implemented.
 
-**Header, 256 B:** `magic u64` (`"LUNECLTH"`) · `version u32` · `flags u32` (hasNormals / hasVelocity / quantized) · `vertexCount u32` · `frameCount u32` · `frameRate f32` · `gridW, gridH u32` · `globalBounds f32×6` · `frameStride u64` (padded to 256 B) · `dataOffset u64` · pad.
+**Header, 256 B:** `magic u64` (`"VELACLTH"`) · `version u32` · `flags u32` (hasNormals / hasVelocity / quantized) · `vertexCount u32` · `frameCount u32` · `frameRate f32` · `gridW, gridH u32` · `globalBounds f32×6` · `frameStride u64` (padded to 256 B) · `dataOffset u64` · pad.
 
 **Per frame:** 32 B header (`frameIndex u32`, `boundsMin f32×3`, `boundsMax f32×3`, pad) then payload, padded to `frameStride`.
 
